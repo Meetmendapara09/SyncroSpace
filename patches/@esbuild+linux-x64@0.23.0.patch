@@ -1,0 +1,4 @@
+diff --git a/node_modules/@esbuild/linux-x64/README.md b/node_modules/@esbuild/linux-x64/README.md.disabled
+similarity index 100%
+rename from node_modules/@esbuild/linux-x64/README.md
+rename to node_modules/@esbuild/linux-x64/README.md.disabled
