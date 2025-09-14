@@ -11,7 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { Avatar as UiAvatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '../ui/card';
 import { cn } from '@/lib/utils';
-import { doc, setDoc, onSnapshot, DocumentData, addDoc, collection, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot, DocumentData, addDoc, collection, serverTimestamp, updateDoc, getDoc, arrayRemove } from 'firebase/firestore';
 import officeMapData from '@/../map.json';
 import { summarizeMeeting } from '@/ai/flows/summarize-meeting';
 import { useRouter } from 'next/navigation';
@@ -84,23 +84,18 @@ function MapRenderer() {
                                         return <div key={`${x}-${y}`} style={{ width: `${GRID_SIZE}px`, height: `${GRID_SIZE}px` }} />;
                                     }
                                     
-                                    const sourceFileName = (tileset as any).source.split('/').pop().replace('.tsx', '.png');
-                                    const imageUrl = `/map/${sourceFileName}`;
-
-                                    const localTileId = tileGid - tileset.firstgid;
-                                    const tilesetWidth = 8; // Assuming 8 tiles wide for all tilesets.
-                                    const tileX = localTileId % tilesetWidth;
-                                    const tileY = Math.floor(localTileId / tilesetWidth);
-
+                                    // Fallback renderer without external image assets
+                                    // Different tilesets get different pastel colors to preserve map structure
+                                    const palette = ['#e2e8f0', '#fee2e2', '#dcfce7', '#e0e7ff', '#fef9c3', '#f5e1ff', '#cffafe', '#fde68a'];
+                                    const color = palette[(officeMapData.tilesets.indexOf(tileset as any)) % palette.length];
                                     return (
                                         <div
                                             key={`${x}-${y}`}
                                             style={{
                                                 width: `${GRID_SIZE}px`,
                                                 height: `${GRID_SIZE}px`,
-                                                backgroundImage: `url(${imageUrl})`,
-                                                backgroundPosition: `-${tileX * GRID_SIZE}px -${tileY * GRID_SIZE}px`,
-                                                backgroundRepeat: 'no-repeat',
+                                                backgroundColor: color,
+                                                outline: '1px solid rgba(0,0,0,0.04)'
                                             }}
                                         />
                                     );
@@ -141,6 +136,16 @@ export function VirtualSpace({ participants: initialParticipants, spaceId }: { p
                 const updatedParticipant = { uid: doc.id, ...doc.data() } as Participant;
                 setLiveParticipants(prev => {
                     const index = prev.findIndex(part => part.uid === updatedParticipant.uid);
+                    
+                    // Check if this participant has left the current space (added to hiddenMeetings)
+                    const hiddenMeetings = updatedParticipant.hiddenMeetings || [];
+                    const hasLeftThisSpace = hiddenMeetings.includes(spaceId);
+                    
+                    if (hasLeftThisSpace) {
+                        // Remove participant if they've left this space
+                        return prev.filter(part => part.uid !== updatedParticipant.uid);
+                    }
+                    
                     if (index > -1) {
                         const newParticipants = [...prev];
                         newParticipants[index] = { ...newParticipants[index], ...updatedParticipant};
@@ -154,7 +159,7 @@ export function VirtualSpace({ participants: initialParticipants, spaceId }: { p
 
     return () => unsubscribes.forEach(unsub => unsub());
 
-  }, [initialParticipants.map(p => p.uid).join(',')]); 
+  }, [initialParticipants.map(p => p.uid).join(','), spaceId]); 
 
 
   useEffect(() => {
@@ -315,10 +320,46 @@ export function VirtualSpace({ participants: initialParticipants, spaceId }: { p
     }
   };
 
-  const handleLeave = () => {
+  const handleLeave = async () => {
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
     }
+    
+    // Remove user from the space and clean up their data
+    if (user) {
+      try {
+        const userDocRef = doc(db, 'users', user.uid);
+        const spaceDocRef = doc(db, 'spaces', spaceId);
+        
+        // Get current user data
+        const userDocSnap = await getDoc(userDocRef);
+        const userData = userDocSnap.data();
+        
+        // Remove from pendingSpaces
+        const currentPendingSpaces = userData?.pendingSpaces || [];
+        const updatedPendingSpaces = currentPendingSpaces.filter((p: any) => p?.spaceId !== spaceId);
+        
+        // Remove from hiddenMeetings
+        const currentHiddenMeetings = userData?.hiddenMeetings || [];
+        const updatedHiddenMeetings = currentHiddenMeetings.filter((hiddenSpaceId: string) => hiddenSpaceId !== spaceId);
+        
+        // Update user document
+        await updateDoc(userDocRef, {
+          pendingSpaces: updatedPendingSpaces,
+          hiddenMeetings: updatedHiddenMeetings,
+          lastUpdated: serverTimestamp(),
+        });
+        
+        // Remove user from space's members array
+        await updateDoc(spaceDocRef, {
+          members: arrayRemove(user.uid),
+          lastActivity: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error('Error leaving space:', error);
+      }
+    }
+    
     router.push('/dashboard');
   }
   

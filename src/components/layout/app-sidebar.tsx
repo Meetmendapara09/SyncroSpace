@@ -36,7 +36,7 @@ import { Separator } from '../ui/separator';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { useCollection, useDocumentData } from 'react-firebase-hooks/firestore';
 import { auth, db } from '@/lib/firebase';
-import { doc, query, collection, where, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import { doc, query, collection, where, setDoc, serverTimestamp, onSnapshot, documentId } from 'firebase/firestore';
 import { CreateSpaceDialog } from '../dashboard/create-space-dialog';
 
 export function AppSidebar() {
@@ -53,6 +53,76 @@ export function AppSidebar() {
       )
     : null;
   const [spaces, spacesLoading, spacesError] = useCollection(spacesQuery);
+
+  // Also include invited spaces (pending) so employees see them immediately
+  const invitedIdsFromUserDoc: string[] = Array.isArray((userData as any)?.pendingSpaces)
+    ? (userData as any).pendingSpaces
+        .map((p: any) => p?.spaceId)
+        .filter((id: any) => typeof id === 'string')
+    : [];
+
+  const invitesByEmailQuery = user?.email
+    ? query(
+        collection(db, 'invites'),
+        where('invitedEmail', '==', user.email),
+        where('status', '==', 'pending')
+      )
+    : null;
+  const [invitesSnap] = useCollection(invitesByEmailQuery);
+  const invitedIdsFromInvites: string[] = invitesSnap?.docs
+    ?.map(d => (d.data() as any)?.spaceId)
+    ?.filter((id: any) => typeof id === 'string') || [];
+
+  const invitedIds = Array.from(new Set<string>([...invitedIdsFromUserDoc, ...invitedIdsFromInvites]));
+  const invitedSpacesQuery = user && invitedIds.length > 0
+    ? query(
+        collection(db, 'spaces'),
+        where(documentId(), 'in', invitedIds.slice(0, 10))
+      )
+    : null;
+  const [invitedSpacesSnap] = useCollection(invitedSpacesQuery);
+
+  // Merge member spaces and invited spaces for display
+  const mergedSidebarSpaces = React.useMemo(() => {
+    const byId = new Map<string, any>();
+    spaces?.docs?.forEach(d => byId.set(d.id, { id: d.id, ...(d.data() as any) }));
+    invitedSpacesSnap?.docs?.forEach(d => byId.set(d.id, { id: d.id, ...(d.data() as any) }));
+    return Array.from(byId.values());
+  }, [spaces, invitedSpacesSnap]);
+
+  // Get all users data to calculate active participants for each space
+  const allUsersQuery = user ? query(collection(db, 'users')) : null;
+  const [allUsersSnapshot] = useCollection(allUsersQuery);
+  const allUsers = allUsersSnapshot?.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)) || [];
+
+  // Calculate active participants for each space
+  const spacesWithActiveParticipants = React.useMemo(() => {
+    return mergedSidebarSpaces.map(space => {
+      // Always filter out users who have this space in their hiddenMeetings array
+      // This ensures that users who left the meeting are not counted, regardless of meeting status
+      const activeParticipants = space.members?.filter((memberId: string) => {
+        const user = allUsers.find(u => u.uid === memberId);
+        const hiddenMeetings = user?.hiddenMeetings || [];
+        return !hiddenMeetings.includes(space.id);
+      }) || [];
+      
+      return { ...space, activeParticipantCount: activeParticipants.length };
+    });
+  }, [mergedSidebarSpaces, allUsers]);
+
+  // Debug sidebar space visibility
+  React.useEffect(() => {
+    if (!user) return;
+    console.log('[Sidebar] uid', user.uid);
+    console.log('[Sidebar] memberSpaces count', spaces?.docs?.length || 0);
+    if (spacesError) {
+      console.error('[Sidebar] memberSpaces error', spacesError);
+    }
+    console.log('[Sidebar] invited ids', invitedIds);
+    console.log('[Sidebar] invitedSpaces count', invitedSpacesSnap?.docs?.length || 0);
+    if (spaces?.docs) console.log('[Sidebar] memberSpaceIds', spaces.docs.map(d => d.id));
+    if (invitedSpacesSnap?.docs) console.log('[Sidebar] invitedSpaceIds', invitedSpacesSnap.docs.map(d => d.id));
+  }, [user, spaces, invitedSpacesSnap, invitedIds]);
 
   // Query for unread notifications from the user's notifications subcollection
   const notificationsQuery = user
@@ -353,7 +423,7 @@ export function AppSidebar() {
             </div>
             {!spacesLoading && (
               <div className="bg-gradient-to-r from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 text-indigo-700 dark:text-indigo-400 text-xs px-1.5 py-0.5 rounded-full font-bold border border-indigo-200 dark:border-indigo-800 flex-shrink-0">
-                {spaces?.docs?.length || 0}
+                {spacesWithActiveParticipants.length}
               </div>
             )}
           </div>
@@ -365,8 +435,7 @@ export function AppSidebar() {
                 <SidebarMenuSkeleton showIcon />
               </>
             ) : (
-              spaces?.docs.map(doc => {
-                const space: any = { id: doc.id, ...(doc.data() as any) };
+              spacesWithActiveParticipants.map(space => {
                 const spaceGradients = [
                   'from-pink-500 to-rose-500',
                   'from-blue-500 to-cyan-500',
@@ -407,9 +476,9 @@ export function AppSidebar() {
                           }`}>
                             {space.name || 'Unnamed Space'}
                           </span>
-                          {space.members && (
+                          {space.activeParticipantCount !== undefined && (
                             <span className="text-xs text-slate-500 dark:text-slate-400 truncate block">
-                              {space.members.length} member{space.members.length !== 1 ? 's' : ''}
+                              {space.activeParticipantCount} member{space.activeParticipantCount !== 1 ? 's' : ''}
                             </span>
                           )}
                         </div>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -7,40 +6,157 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ChatPanel } from '@/components/space/chat-panel';
 import { Hash, Users, UserPlus } from 'lucide-react';
 import { useDocument, useCollection } from 'react-firebase-hooks/firestore';
-import { doc, collection, query, where, updateDoc } from 'firebase/firestore';
+import { doc, collection, query, where, updateDoc, serverTimestamp, Timestamp, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InviteDialog } from '@/components/space/invite-dialog';
 import { Button } from '@/components/ui/button';
 
 export default function SpacePage({ params }: { params: { id: string } }) {
-  const { id } = React.use(params);
+  const { id } = params;
   const spaceRef = doc(db, 'spaces', id);
   const [spaceSnapshot, spaceLoading, spaceError] = useDocument(spaceRef);
   
   const spaceData = spaceSnapshot?.data();
   const memberIds = spaceData?.members || [];
 
+  // Fetch all users who are members of this space
   const usersRef = collection(db, 'users');
   // Firestore 'in' queries are limited to 30 elements.
   // For larger spaces, you'd need a more complex solution like fetching users individually or restructuring data.
   const usersQuery = memberIds.length > 0 ? query(usersRef, where('uid', 'in', memberIds.slice(0, 30))) : null;
   const [usersSnapshot, usersLoading, usersError] = useCollection(usersQuery);
 
-  const participants = usersSnapshot?.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)) || [];
+  // Get all member data
+  const allMembers = usersSnapshot?.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)) || [];
+  
+  // Filter out participants who have left this meeting (added this space to their hiddenMeetings)
+  const activeParticipants = React.useMemo(() => {
+    // Always filter out users who have this space in their hiddenMeetings array
+    // This ensures that users who left the meeting are not counted, regardless of meeting status
+    return allMembers.filter(member => {
+      const hiddenMeetings = member.hiddenMeetings || [];
+      return !hiddenMeetings.includes(id);
+    });
+  }, [allMembers, id]);
   
   const loading = spaceLoading || (memberIds.length > 0 && usersLoading);
   
-  // Set meeting to active when component mounts and inactive when it unmounts
-  React.useEffect(() => {
-    if (spaceSnapshot?.exists()) {
-      updateDoc(doc(db, 'spaces', id), { activeMeeting: true });
+  // Helpers to start/end meeting
+  const endMeeting = React.useCallback(async () => {
+    try {
+      // Get current space data to get all members
+      const spaceDocSnap = await getDoc(doc(db, 'spaces', id));
+      const spaceData = spaceDocSnap.data();
+      const allMembers = spaceData?.members || [];
       
-      return () => {
-        updateDoc(doc(db, 'spaces', id), { activeMeeting: false });
-      }
+      // Remove all members from the space
+      await updateDoc(doc(db, 'spaces', id), {
+        activeMeeting: false,
+        meetingEndsAt: null,
+        lastActivity: new Date().toISOString(),
+        endedAt: serverTimestamp(),
+        members: [], // Remove all members
+      });
+      
+      // Also remove this space from all users' pendingSpaces and clear hiddenMeetings
+      const userUpdatePromises = allMembers.map(async (memberId: string) => {
+        try {
+          const userDocRef = doc(db, 'users', memberId);
+          const userDocSnap = await getDoc(userDocRef);
+          const userData = userDocSnap.data();
+          
+          // Remove from pendingSpaces
+          const currentPendingSpaces = userData?.pendingSpaces || [];
+          const updatedPendingSpaces = currentPendingSpaces.filter((p: any) => p?.spaceId !== id);
+          
+          // Remove from hiddenMeetings
+          const currentHiddenMeetings = userData?.hiddenMeetings || [];
+          const updatedHiddenMeetings = currentHiddenMeetings.filter((hiddenSpaceId: string) => hiddenSpaceId !== id);
+          
+          await updateDoc(userDocRef, {
+            pendingSpaces: updatedPendingSpaces,
+            hiddenMeetings: updatedHiddenMeetings,
+            lastUpdated: serverTimestamp(),
+          });
+        } catch (error) {
+          console.error(`Error updating user ${memberId}:`, error);
+        }
+      });
+      
+      await Promise.all(userUpdatePromises);
+    } catch {}
+  }, [id]);
+
+  const startMeetingIfNeeded = React.useCallback(async () => {
+    try {
+      // Default 30 minutes duration
+      const defaultDurationMinutes = 30;
+      const endsAtMs = Date.now() + defaultDurationMinutes * 60 * 1000;
+      await updateDoc(doc(db, 'spaces', id), {
+        activeMeeting: true,
+        meetingEndsAt: Timestamp.fromDate(new Date(endsAtMs)),
+        lastActivity: new Date().toISOString(),
+      });
+
+      // Clear hiddenMeetings for all members when starting a new meeting
+      // This allows users who previously left to rejoin the new meeting
+      const memberIds = spaceData?.members || [];
+      const clearHiddenMeetingsPromises = memberIds.map(async (memberId: string) => {
+        try {
+          const userDocRef = doc(db, 'users', memberId);
+          const userDocSnap = await getDoc(userDocRef);
+          const userData = userDocSnap.data();
+          const currentHiddenMeetings = userData?.hiddenMeetings || [];
+          
+          // Remove this space from hiddenMeetings if it exists
+          const updatedHiddenMeetings = currentHiddenMeetings.filter((spaceId: string) => spaceId !== id);
+          
+          if (updatedHiddenMeetings.length !== currentHiddenMeetings.length) {
+            await updateDoc(userDocRef, {
+              hiddenMeetings: updatedHiddenMeetings,
+              lastUpdated: serverTimestamp(),
+            });
+          }
+        } catch (error) {
+          console.error(`Error clearing hiddenMeetings for user ${memberId}:`, error);
+        }
+      });
+      
+      await Promise.all(clearHiddenMeetingsPromises);
+    } catch {}
+  }, [id, spaceData?.members]);
+
+  // Set meeting active and schedule auto end
+  React.useEffect(() => {
+    if (!spaceSnapshot?.exists()) return;
+    const data: any = spaceSnapshot.data();
+
+    // If meeting already ended by time, enforce end
+    const endsAt: Timestamp | undefined = data?.meetingEndsAt as any;
+    if (data?.activeMeeting && endsAt && endsAt.toDate().getTime() <= Date.now()) {
+      endMeeting();
+      return;
     }
-  }, [id, spaceSnapshot]);
+
+    // Start meeting if not active
+    if (!data?.activeMeeting) {
+      startMeetingIfNeeded();
+    }
+
+    // Setup timer to auto-end at endsAt
+    let timer: any;
+    if (data?.activeMeeting && endsAt) {
+      const ms = Math.max(0, endsAt.toDate().getTime() - Date.now());
+      timer = setTimeout(() => {
+        endMeeting();
+      }, ms);
+    }
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    }
+  }, [spaceSnapshot, endMeeting, startMeetingIfNeeded]);
   
   return (
     <div className="grid h-[calc(100vh-theme(spacing.14))] grid-cols-1 lg:grid-cols-[1fr_350px]">
@@ -60,6 +176,9 @@ export default function SpacePage({ params }: { params: { id: string } }) {
                         Invite
                     </Button>
                 </InviteDialog>
+                <Button variant="destructive" size="sm" className="ml-2" onClick={endMeeting}>
+                  End Meeting
+                </Button>
             </>
           ) : (
              <h1 className="flex items-center gap-2 text-lg font-semibold text-destructive">
@@ -72,7 +191,7 @@ export default function SpacePage({ params }: { params: { id: string } }) {
             ) : (
                 <>
                     <div className="flex -space-x-2 overflow-hidden">
-                    {participants.slice(0, 3).map(p => (
+                    {activeParticipants.slice(0, 3).map(p => (
                         <Avatar key={p.uid} className="inline-block border-2 border-background h-8 w-8">
                             <AvatarImage src={p.photoURL} />
                             <AvatarFallback>{p.name?.[0]}</AvatarFallback>
@@ -81,7 +200,7 @@ export default function SpacePage({ params }: { params: { id: string } }) {
                     </div>
                     <span className="flex items-center gap-1 text-sm text-muted-foreground">
                         <Users className="h-4 w-4" />
-                        {participants.length}
+                        {activeParticipants.length}
                     </span>
                 </>
             )}
@@ -89,7 +208,7 @@ export default function SpacePage({ params }: { params: { id: string } }) {
         </header>
         <div className="flex-1 relative">
              {spaceSnapshot?.exists() ? (
-                <VirtualSpace participants={participants} spaceId={id} />
+                <VirtualSpace participants={activeParticipants} spaceId={id} />
              ) : (
                 <div className="flex items-center justify-center h-full">
                     <p className="text-muted-foreground">This space does not exist or you do not have permission to view it.</p>
@@ -99,7 +218,7 @@ export default function SpacePage({ params }: { params: { id: string } }) {
       </div>
       <div className="hidden flex-col border-l bg-muted/40 lg:flex">
         <ChatPanel 
-            participants={participants} 
+            participants={activeParticipants} 
             spaceId={id}
             spaceName={spaceData?.name || ''} 
         />

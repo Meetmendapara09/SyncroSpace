@@ -22,11 +22,16 @@ const ChatInputSchema = z.object({
 export type ChatInput = z.infer<typeof ChatInputSchema>;
 
 const ChatOutputSchema = z.object({
-  message: z.string(),
+  message: z.string().min(1, "Message cannot be empty"),
 });
 export type ChatOutput = z.infer<typeof ChatOutputSchema>;
 
 export async function chat(input: ChatInput): Promise<ChatOutput> {
+  // Validate input to prevent null messages
+  if (!input.message || input.message.trim() === '') {
+    return { message: "I'm here to help! Please ask me a question about SyncroSpace." };
+  }
+  
   return chatFlow(input);
 }
 

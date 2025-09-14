@@ -5,6 +5,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { cn } from '@/lib/utils';
 import { Chatbot } from '@/components/chatbot/chatbot';
+import { MeetingReminderService } from '@/components/meeting-reminder-service';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -42,6 +43,7 @@ export default function RootLayout({
         {children}
         <Toaster />
         <Chatbot />
+        <MeetingReminderService />
       </body>
     </html>
   );

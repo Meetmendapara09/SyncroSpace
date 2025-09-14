@@ -2,6 +2,7 @@
 "use client"
 
 import { Pie, PieChart } from "recharts"
+import { useState, useEffect } from 'react';
 
 import {
   ChartContainer,
@@ -11,14 +12,6 @@ import {
   ChartLegendContent
 } from "@/components/ui/chart"
 import { CardDescription } from "../ui/card"
-
-const chartData = [
-  { feature: "Virtual Space", usage: 275, fill: "var(--color-space)" },
-  { feature: "Kanban Board", usage: 200, fill: "var(--color-board)" },
-  { feature: "Chat", usage: 187, fill: "var(--color-chat)" },
-  { feature: "AI Suggestions", usage: 173, fill: "var(--color-ai)" },
-  { feature: "Account Settings", usage: 90, fill: "var(--color-account)" },
-]
 
 const chartConfig = {
   usage: {
@@ -46,7 +39,60 @@ const chartConfig = {
   },
 }
 
-export function FeatureUsageChart() {
+interface FeatureUsageChartProps {
+  spacesData?: any[];
+  usersData?: any[];
+}
+
+export function FeatureUsageChart({ spacesData, usersData }: FeatureUsageChartProps) {
+  const [chartData, setChartData] = useState([]);
+
+  useEffect(() => {
+    if (!spacesData || !usersData) return;
+
+    // Calculate feature usage based on Firebase data
+    const spacesCount = spacesData.length;
+    const usersCount = usersData.length;
+    const activeSpaces = spacesData.filter(doc => doc.data().activeMeeting).length;
+    
+    // Calculate messages across all spaces
+    const totalMessages = spacesData.reduce((total, spaceDoc) => {
+      const spaceData = spaceDoc.data();
+      return total + (spaceData.messageCount || 0);
+    }, 0);
+
+    // Generate feature usage data based on actual Firebase data
+    const featureData = [
+      { 
+        feature: "Virtual Space", 
+        usage: Math.max(spacesCount * 10, 50), // Base usage on number of spaces
+        fill: "var(--color-space)" 
+      },
+      { 
+        feature: "Kanban Board", 
+        usage: Math.max(activeSpaces * 15, 30), // Base usage on active spaces
+        fill: "var(--color-board)" 
+      },
+      { 
+        feature: "Chat", 
+        usage: Math.max(totalMessages, 20), // Base usage on message count
+        fill: "var(--color-chat)" 
+      },
+      { 
+        feature: "AI Suggestions", 
+        usage: Math.max(usersCount * 5, 15), // Base usage on user count
+        fill: "var(--color-ai)" 
+      },
+      { 
+        feature: "Account Settings", 
+        usage: Math.max(usersCount * 3, 10), // Base usage on user count
+        fill: "var(--color-account)" 
+      },
+    ];
+
+    setChartData(featureData);
+  }, [spacesData, usersData]);
+
   return (
     <ChartContainer
       config={chartConfig}

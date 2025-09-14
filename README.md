@@ -11,6 +11,7 @@ Welcome to SyncroSpace, an all-in-one virtual collaboration platform designed fo
 -   **AI-Powered Assistant**: Get smart suggestions, meeting summaries, and more from our integrated AI.
 -   **Team & Company Hubs**: A centralized place for team calendars, company stories, and announcements.
 -   **SyncroSpace Connect**: Collaborate securely with external partners in dedicated channels.
+-   **🤖 BigQuery AI Integration**: Advanced analytics and insights powered by Google's generative AI.
 
 ## 🚀 Getting Started
 
@@ -54,6 +55,49 @@ npm run dev
 
 This will start the application on `http://localhost:9002`. Open this URL in your browser to see the application in action.
 
+## 🤖 BigQuery AI Integration
+
+SyncroSpace now includes advanced AI-powered analytics using Google BigQuery's generative AI functions:
+
+### Features
+- **Hyper-Personalized Marketing Engine**: Generate unique content for every user based on their behavior patterns
+- **Executive Insights Dashboard**: Automatically transform raw data into actionable business insights
+- **User Engagement Forecasting**: Predict future user engagement and behavior patterns
+- **Enhanced Meeting Analytics**: AI-powered meeting effectiveness scoring and categorization
+- **Smart Space Recommendations**: Intelligent suggestions for optimal team collaboration
+
+### Setup BigQuery AI Features
+
+1. **Initialize BigQuery Setup**:
+   ```bash
+   npm run bigquery:setup
+   ```
+
+2. **Test the Integration**:
+   ```bash
+   npm run bigquery:test
+   ```
+
+3. **Sync Your Data**:
+   ```bash
+   npm run bigquery:sync
+   ```
+
+4. **Start Auto-Sync** (optional):
+   ```bash
+   npm run bigquery:sync start 60  # Sync every 60 minutes
+   ```
+
+### BigQuery AI Functions Used
+- `ML.GENERATE_TEXT`: Personalized content generation
+- `AI.GENERATE_TABLE`: Executive insights and summaries
+- `AI.FORECAST`: User engagement prediction
+- `AI.GENERATE_INT`: Meeting effectiveness scoring
+- `AI.GENERATE_BOOL`: Meeting categorization
+- `AI.GENERATE`: Space recommendations
+
+For detailed setup instructions, see [BigQuery Setup Guide](docs/bigquery-setup-guide.md).
+
 ## 🛠️ Tech Stack
 
 -   **Framework**: [Next.js](https://nextjs.org/)
@@ -64,7 +108,29 @@ This will start the application on `http://localhost:9002`. Open this URL in you
 -   **Real-time Whiteboard**: [Excalidraw](https://excalidraw.com/)
 -   **Animations**: [Framer Motion](https://www.framer.com/motion/)
 -   **Generative AI**: [Google AI & Genkit](https://firebase.google.com/docs/genkit)
+-   **Advanced Analytics**: [Google BigQuery AI](https://cloud.google.com/bigquery/docs/generative-ai)
 -   **State Management**: [Zustand](https://github.com/pmndrs/zustand)
 -   **Forms**: [React Hook Form](https://react-hook-form.com/) & [Zod](https://zod.dev/)
 
-Thank you for checking out SyncroSpace! We're excited to see how you use it to bring your team closer together.
+## 📊 Analytics & Insights
+
+The platform includes comprehensive analytics powered by BigQuery AI:
+
+- **Real-time User Engagement**: Track and predict user behavior patterns
+- **Meeting Effectiveness**: AI-scored meeting quality and categorization
+- **Executive Dashboards**: Automated business insights and recommendations
+- **Personalized Content**: AI-generated marketing and engagement content
+- **Space Optimization**: Intelligent recommendations for team collaboration
+
+## 🔧 Available Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint
+- `npm run test` - Run tests
+- `npm run bigquery:setup` - Initialize BigQuery AI features
+- `npm run bigquery:test` - Test BigQuery integration
+- `npm run bigquery:sync` - Sync data to BigQuery
+
+Thank you for checking out SyncroSpace! We're excited to see how you use it to bring your team closer together with the power of AI-driven insights.

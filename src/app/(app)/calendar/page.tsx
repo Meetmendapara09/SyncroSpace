@@ -1,15 +1,21 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Clock, MapPin, CheckCircle } from 'lucide-react';
+import { PlusCircle, Clock, MapPin, CheckCircle, Calendar as CalendarIcon } from 'lucide-react';
 import { getInitials } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useCollection } from 'react-firebase-hooks/firestore';
+import { collection, query, where, orderBy } from 'firebase/firestore';
+import { db, auth } from '@/lib/firebase';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { CreateSpaceDialog } from '@/components/dashboard/create-space-dialog';
+import { forceCleanupCompletedMeetings } from '@/lib/meeting-notifications';
 
 
 function GoogleIcon() {
@@ -90,6 +96,24 @@ export default function CalendarPage() {
     const [date, setDate] = useState<Date | undefined>(new Date());
     const [isGoogleConnected, setIsGoogleConnected] = useState(false);
     const { toast } = useToast();
+    const [user] = useAuthState(auth);
+    const [refreshKey, setRefreshKey] = useState(0);
+
+    // Fetch meetings from database
+    const meetingsQuery = user && user.email ? query(
+        collection(db, 'meetings'),
+        where('attendees', 'array-contains', user.email)
+    ) : null;
+    const [meetingsSnapshot, meetingsLoading, meetingsError] = useCollection(meetingsQuery);
+
+    // Simple refresh mechanism to update meeting status
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setRefreshKey(prev => prev + 1);
+        }, 60000); // Update every minute
+
+        return () => clearInterval(interval);
+    }, []);
 
     const handleConnectGoogle = () => {
         setIsGoogleConnected(true);
@@ -99,7 +123,59 @@ export default function CalendarPage() {
         })
     }
 
-    const allEvents = isGoogleConnected ? [...initialEvents, ...googleEvents] : initialEvents;
+    const handleForceCleanup = async () => {
+        try {
+            await forceCleanupCompletedMeetings(user?.email || undefined);
+            toast({
+                title: 'Cleanup Complete',
+                description: 'Completed meetings have been cleaned up.',
+            });
+        } catch (error) {
+            toast({
+                variant: 'destructive',
+                title: 'Cleanup Failed',
+                description: 'Error cleaning up completed meetings.',
+            });
+        }
+    }
+
+    // Convert meetings from database to calendar events
+    const dbMeetings = meetingsSnapshot?.docs.map(doc => {
+        const data = doc.data();
+        console.log('📅 Meeting data:', data);
+        
+        const now = new Date(); // Calculate current time directly
+        const startTime = new Date(data.startDateTime);
+        const endTime = new Date(data.endDateTime);
+        
+        // Determine meeting status based on current time
+        let tag = 'Meeting';
+        if (now >= startTime && now <= endTime) {
+            tag = 'Ongoing';
+        } else if (now > endTime) {
+            tag = 'Completed';
+        } else if (now < startTime) {
+            tag = 'Upcoming';
+        }
+        
+        return {
+            id: doc.id,
+            date: startTime,
+            title: data.title,
+            time: `${startTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} - ${endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`,
+            location: 'Virtual Meeting',
+            attendees: data.attendees || [],
+            tag: tag,
+            source: 'syncrospace',
+            description: data.description,
+            status: data.status,
+        };
+    }).sort((a, b) => a.date.getTime() - b.date.getTime()) || [];
+
+    console.log('📅 Total meetings found:', dbMeetings.length);
+    console.log('📅 User email:', user?.email);
+
+    const allEvents = isGoogleConnected ? [...dbMeetings, ...initialEvents, ...googleEvents] : [...dbMeetings, ...initialEvents];
     
     const selectedDayEvents = allEvents.filter(event => 
         date && event.date.toDateString() === date.toDateString()
@@ -126,9 +202,15 @@ export default function CalendarPage() {
                             <span className="ml-2">Connect Google Calendar</span>
                         </Button>
                     )}
-                    <Button>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Create Event
+                    <CreateSpaceDialog>
+                        <Button>
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            Create Space / Schedule Meeting
+                        </Button>
+                    </CreateSpaceDialog>
+                    <Button onClick={handleForceCleanup} variant="outline">
+                        <Clock className="mr-2 h-4 w-4" />
+                        Cleanup Completed Meetings
                     </Button>
                 </div>
             </header>
@@ -165,7 +247,19 @@ export default function CalendarPage() {
                                         <li key={index} className="space-y-2 rounded-lg border p-4">
                                             <div className="flex justify-between items-start">
                                                 <h3 className="font-semibold">{event.title}</h3>
-                                                <Badge variant={event.tag === 'Deadline' ? 'destructive' : 'secondary'}>{event.tag}</Badge>
+                                                <Badge 
+                                                    variant={
+                                                        event.tag === 'Deadline' ? 'destructive' : 
+                                                        event.tag === 'Ongoing' ? 'default' : 
+                                                        event.tag === 'Completed' ? 'outline' : 
+                                                        'secondary'
+                                                    }
+                                                    className={
+                                                        event.tag === 'Ongoing' ? 'bg-green-500 hover:bg-green-600 text-white' : ''
+                                                    }
+                                                >
+                                                    {event.tag}
+                                                </Badge>
                                             </div>
                                             <div className="flex items-center text-sm text-muted-foreground">
                                                 {event.source === 'google' ? <GoogleIcon /> : <Clock className="h-4 w-4" />}
