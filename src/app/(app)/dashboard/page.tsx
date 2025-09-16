@@ -35,7 +35,7 @@ import { collection, doc, query, where, DocumentData, setDoc, serverTimestamp, d
 import { db, auth } from '@/lib/firebase';
 import { useDocumentData } from 'react-firebase-hooks/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { updateDoc, doc as fsDoc, arrayRemove } from 'firebase/firestore';
+import { updateDoc, doc as fsDoc, arrayRemove, arrayUnion } from 'firebase/firestore';
 
 // -----------------------------
 // Interfaces
@@ -153,33 +153,11 @@ function EndMeetingButton({
         
         await Promise.all(userUpdatePromises);
       } else {
-        // Employee leaves meeting - remove them from the space and clean up their data
+        // Employee hides this meeting from their dashboard's Active Meetings
         const userDocRef = fsDoc(db, 'users', userId);
-        const spaceDocRef = fsDoc(db, 'spaces', spaceId);
-        
-        // Get current user data
-        const userDocSnap = await getDoc(userDocRef);
-        const userData = userDocSnap.data();
-        
-        // Remove from pendingSpaces
-        const currentPendingSpaces = userData?.pendingSpaces || [];
-        const updatedPendingSpaces = currentPendingSpaces.filter((p: any) => p?.spaceId !== spaceId);
-        
-        // Remove from hiddenMeetings
-        const currentHiddenMeetings = userData?.hiddenMeetings || [];
-        const updatedHiddenMeetings = currentHiddenMeetings.filter((hiddenSpaceId: string) => hiddenSpaceId !== spaceId);
-        
-        // Update user document
         await updateDoc(userDocRef, {
-          pendingSpaces: updatedPendingSpaces,
-          hiddenMeetings: updatedHiddenMeetings,
+          hiddenMeetings: arrayUnion(spaceId),
           lastUpdated: serverTimestamp(),
-        });
-        
-        // Remove user from space's members array
-        await updateDoc(spaceDocRef, {
-          members: arrayRemove(userId),
-          lastActivity: new Date().toISOString(),
         });
       }
     } catch (error) {

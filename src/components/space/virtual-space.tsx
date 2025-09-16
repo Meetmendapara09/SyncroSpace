@@ -15,9 +15,11 @@ import { doc, setDoc, onSnapshot, DocumentData, addDoc, collection, serverTimest
 import officeMapData from '@/../map.json';
 import { summarizeMeeting } from '@/ai/flows/summarize-meeting';
 import { useRouter } from 'next/navigation';
+import { createRoom, joinRoom, hangUp, startLocalMedia, RoomHandles } from '@/lib/webrtc';
 
 const GRID_SIZE = 32;
 const STEP = GRID_SIZE;
+const SHOW_MAP = false; // Hide background tile map
 
 interface Participant {
     uid: string;
@@ -57,56 +59,7 @@ const isPositionValid = (pos: { x: number; y: number }) => {
 
 
 function MapRenderer() {
-    return (
-        <div className="absolute inset-0 bg-gray-200/50" style={{ width: `${officeMapData.width * GRID_SIZE}px`, height: `${officeMapData.height * GRID_SIZE}px`}}>
-            {officeMapData.layers.map((layer, layerIndex) => {
-                if (layer.type !== 'tilelayer' || layer.name === 'Tile Layer 8' ) return null;
-                return (
-                    <div key={layerIndex} className="absolute inset-0" style={{ zIndex: layerIndex }}>
-                        {Array.from({ length: layer.height }).map((_, y) => (
-                            <div key={y} className="flex" style={{ height: `${GRID_SIZE}px` }}>
-                                {Array.from({ length: layer.width }).map((__, x) => {
-                                    const tileIndex = y * layer.width + x;
-                                    const tileGid = layer.data[tileIndex];
-                                    if (tileGid === 0) {
-                                        return <div key={`${x}-${y}`} style={{ width: `${GRID_SIZE}px`, height: `${GRID_SIZE}px` }} />;
-                                    }
-
-                                    let tileset;
-                                    for (let i = officeMapData.tilesets.length - 1; i >= 0; i--) {
-                                        if (officeMapData.tilesets[i].firstgid <= tileGid) {
-                                            tileset = officeMapData.tilesets[i];
-                                            break;
-                                        }
-                                    }
-                                    
-                                    if (!tileset || !(tileset as any).source) {
-                                        return <div key={`${x}-${y}`} style={{ width: `${GRID_SIZE}px`, height: `${GRID_SIZE}px` }} />;
-                                    }
-                                    
-                                    // Fallback renderer without external image assets
-                                    // Different tilesets get different pastel colors to preserve map structure
-                                    const palette = ['#e2e8f0', '#fee2e2', '#dcfce7', '#e0e7ff', '#fef9c3', '#f5e1ff', '#cffafe', '#fde68a'];
-                                    const color = palette[(officeMapData.tilesets.indexOf(tileset as any)) % palette.length];
-                                    return (
-                                        <div
-                                            key={`${x}-${y}`}
-                                            style={{
-                                                width: `${GRID_SIZE}px`,
-                                                height: `${GRID_SIZE}px`,
-                                                backgroundColor: color,
-                                                outline: '1px solid rgba(0,0,0,0.04)'
-                                            }}
-                                        />
-                                    );
-                                })}
-                            </div>
-                        ))}
-                    </div>
-                )
-            })}
-        </div>
-    );
+    return null;
 }
 
 export function VirtualSpace({ participants: initialParticipants, spaceId }: { participants: Participant[], spaceId: string }) {
@@ -119,11 +72,15 @@ export function VirtualSpace({ participants: initialParticipants, spaceId }: { p
   const [liveParticipants, setLiveParticipants] = useState<Participant[]>(initialParticipants);
 
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
   const [isTogetherMode, setIsTogetherMode] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isInCall, setIsInCall] = useState(false);
+  const roomHandlesRef = useRef<RoomHandles | null>(null);
   const { toast } = useToast();
   
   useEffect(() => {
@@ -164,34 +121,58 @@ export function VirtualSpace({ participants: initialParticipants, spaceId }: { p
 
   useEffect(() => {
     let stream: MediaStream;
-    const getCameraPermission = async () => {
+    const initMedia = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        stream = await startLocalMedia({ video: true, audio: true });
         setLocalStream(stream);
         setHasCameraPermission(true);
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
+        if (videoRef.current) videoRef.current.srcObject = stream;
       } catch (error) {
         console.error('Error accessing camera:', error);
         setHasCameraPermission(false);
-        toast({
-          variant: 'destructive',
-          title: 'Camera Access Denied',
-          description: 'Please enable camera permissions in your browser settings to use this app.',
-        });
+        toast({ variant: 'destructive', title: 'Camera Access Denied', description: 'Please enable camera and mic in browser settings.' });
       }
     };
-
-    getCameraPermission();
-
+    initMedia();
     return () => {
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-        }
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
     }
   }, [toast]);
+
+  const startOrJoinCall = async () => {
+    if (!localStream) {
+      toast({ variant: 'destructive', title: 'Media not ready' });
+      return;
+    }
+    try {
+      const roomId = 'default';
+      const roomPath = doc(db, `spaces/${spaceId}/rooms/${roomId}`);
+      const snap = await getDoc(roomPath);
+      let handles: RoomHandles;
+      if (snap.exists()) {
+        handles = await joinRoom(spaceId, roomId, localStream);
+      } else {
+        handles = await createRoom(spaceId, roomId, localStream);
+      }
+      roomHandlesRef.current = handles;
+      setRemoteStream(handles.remoteStream);
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = handles.remoteStream;
+      setIsInCall(true);
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Call failed', description: e?.message || 'Unable to start call' });
+    }
+  };
+
+  const endCall = async () => {
+    try {
+      if (roomHandlesRef.current) await hangUp(roomHandlesRef.current);
+      setIsInCall(false);
+      setRemoteStream(null);
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+    } catch {}
+  };
   
   const updatePositionInDb = async (newPos: {x: number, y: number}) => {
     if (user) {
@@ -373,7 +354,7 @@ export function VirtualSpace({ participants: initialParticipants, spaceId }: { p
       tabIndex={0}
     >
         <div className="relative">
-            <MapRenderer />
+            {SHOW_MAP && <MapRenderer />}
 
             {isTogetherMode ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm p-8">
@@ -421,22 +402,40 @@ export function VirtualSpace({ participants: initialParticipants, spaceId }: { p
 
         <div className="absolute bottom-0 left-0 right-0 p-4 flex flex-col items-center">
             
-            <div className={cn(
-                "relative w-48 h-36 mb-4 transition-all duration-300",
-                isTogetherMode && "w-0 h-0 opacity-0 mb-0"
-            )}>
-                <video 
-                    ref={videoRef} 
-                    className="w-full h-full rounded-md bg-background object-cover" 
-                    autoPlay 
-                    muted 
-                />
-                 {(isCameraOff || hasCameraPermission === false) && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-background rounded-md border">
-                        <VideoOff className="h-8 w-8 text-muted-foreground" />
-                        <span className="mt-2 text-sm text-muted-foreground">Camera is off</span>
-                    </div>
-                )}
+            <div className="flex gap-4 mb-4">
+              <div className={cn(
+                  "relative w-48 h-36 transition-all duration-300",
+                  isTogetherMode && "w-0 h-0 opacity-0"
+              )}>
+                  <video 
+                      ref={videoRef} 
+                      className="w-full h-full rounded-md bg-background object-cover" 
+                      autoPlay 
+                      muted 
+                  />
+                  {(isCameraOff || hasCameraPermission === false) && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-background rounded-md border">
+                          <VideoOff className="h-8 w-8 text-muted-foreground" />
+                          <span className="mt-2 text-sm text-muted-foreground">Camera is off</span>
+                      </div>
+                  )}
+              </div>
+              <div className={cn(
+                  "relative w-48 h-36 transition-all duration-300",
+                  isTogetherMode && "w-0 h-0 opacity-0"
+              )}>
+                  <video 
+                      ref={remoteVideoRef} 
+                      className="w-full h-full rounded-md bg-background object-cover" 
+                      autoPlay 
+                  />
+                  {!remoteStream && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-background rounded-md border">
+                          <Users className="h-8 w-8 text-muted-foreground" />
+                          <span className="mt-2 text-sm text-muted-foreground">Waiting for others…</span>
+                      </div>
+                  )}
+              </div>
             </div>
 
              { hasCameraPermission === false && (
@@ -449,6 +448,15 @@ export function VirtualSpace({ participants: initialParticipants, spaceId }: { p
             )}
 
             <div className="flex items-center gap-4 rounded-full bg-background/80 p-3 shadow-lg backdrop-blur-sm">
+                {!isInCall ? (
+                  <Button variant="default" className="rounded-full h-12" onClick={startOrJoinCall}>
+                    Start Call
+                  </Button>
+                ) : (
+                  <Button variant="destructive" size="icon" className="rounded-full h-12 w-12" onClick={endCall}>
+                    <PhoneOff />
+                  </Button>
+                )}
                 <Button variant={isMicMuted ? "destructive" : "outline"} size="icon" className="rounded-full h-12 w-12" onClick={handleToggleMic}>
                     {isMicMuted ? <MicOff /> : <Mic />}
                 </Button>
@@ -461,8 +469,8 @@ export function VirtualSpace({ participants: initialParticipants, spaceId }: { p
                  <Button variant={isRecording ? "destructive" : "outline"} size="icon" className="rounded-full h-12 w-12" onClick={handleToggleRecording}>
                     {isRecording ? <Dot className="animate-pulse" /> : <CircleDot />}
                 </Button>
-                <Button variant="destructive" size="icon" className="rounded-full h-12 w-12" onClick={handleLeave}>
-                    <PhoneOff />
+                <Button variant="outline" className="rounded-full h-12" onClick={handleLeave}>
+                    Leave Meeting
                 </Button>
             </div>
         </div>

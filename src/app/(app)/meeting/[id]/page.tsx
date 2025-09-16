@@ -62,7 +62,7 @@ export default function MeetingPage() {
         const spaceRef = await addDoc(collection(db, 'spaces'), {
           name: meetingData.title,
           description: meetingData.description || 'Meeting Space',
-          creatorId: user.uid,
+          creatorId: meetingData.creatorId || user.uid,
           members: [user.uid],
           createdAt: serverTimestamp(),
           meetingId: meetingId,
@@ -74,6 +74,12 @@ export default function MeetingPage() {
         // Update the meeting with the space ID
         await updateDoc(doc(db, 'meetings', meetingId), {
           spaceId: spaceId,
+        });
+      } else {
+        // Ensure current user is a member of the existing space
+        const { updateDoc, arrayUnion } = await import('firebase/firestore');
+        await updateDoc(doc(db, 'spaces', spaceId), {
+          members: arrayUnion(user.uid),
         });
       }
       

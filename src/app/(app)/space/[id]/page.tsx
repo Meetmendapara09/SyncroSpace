@@ -6,19 +6,22 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ChatPanel } from '@/components/space/chat-panel';
 import { Hash, Users, UserPlus } from 'lucide-react';
 import { useDocument, useCollection } from 'react-firebase-hooks/firestore';
-import { doc, collection, query, where, updateDoc, serverTimestamp, Timestamp, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { doc, collection, query, where, updateDoc, serverTimestamp, Timestamp, getDoc, getDocs, deleteDoc } from 'firebase/firestore';
+import { db, auth } from '@/lib/firebase';
+import { useAuthState } from 'react-firebase-hooks/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InviteDialog } from '@/components/space/invite-dialog';
 import { Button } from '@/components/ui/button';
 
 export default function SpacePage({ params }: { params: { id: string } }) {
   const { id } = params;
+  const [user] = useAuthState(auth);
   const spaceRef = doc(db, 'spaces', id);
   const [spaceSnapshot, spaceLoading, spaceError] = useDocument(spaceRef);
   
   const spaceData = spaceSnapshot?.data();
   const memberIds = spaceData?.members || [];
+  const isAdmin = !!user && user.uid === spaceData?.creatorId;
 
   // Fetch all users who are members of this space
   const usersRef = collection(db, 'users');
@@ -85,6 +88,21 @@ export default function SpacePage({ params }: { params: { id: string } }) {
       });
       
       await Promise.all(userUpdatePromises);
+
+      // If current user is admin, delete the meeting document(s) tied to this space
+      if (user && user.uid === spaceData?.creatorId) {
+        const meetingsRef = collection(db, 'meetings');
+        const meetingQuery = query(meetingsRef, where('spaceId', '==', id));
+        const meetingSnaps = await getDocs(meetingQuery);
+        const deletePromises: Promise<any>[] = [];
+        meetingSnaps.forEach(s => {
+          deletePromises.push(deleteDoc(doc(db, 'meetings', s.id)));
+        });
+        await Promise.all(deletePromises);
+
+        // Optionally delete the space itself after cleanup
+        // await deleteDoc(doc(db, 'spaces', id));
+      }
     } catch {}
   }, [id]);
 
@@ -176,9 +194,11 @@ export default function SpacePage({ params }: { params: { id: string } }) {
                         Invite
                     </Button>
                 </InviteDialog>
-                <Button variant="destructive" size="sm" className="ml-2" onClick={endMeeting}>
-                  End Meeting
-                </Button>
+                {isAdmin && (
+                  <Button variant="destructive" size="sm" className="ml-2" onClick={endMeeting}>
+                    End Meeting
+                  </Button>
+                )}
             </>
           ) : (
              <h1 className="flex items-center gap-2 text-lg font-semibold text-destructive">
@@ -216,7 +236,7 @@ export default function SpacePage({ params }: { params: { id: string } }) {
             )}
         </div>
       </div>
-      <div className="hidden flex-col border-l bg-muted/40 lg:flex">
+      <div className="flex flex-col border-l bg-muted/40 w-80 min-w-80">
         <ChatPanel 
             participants={activeParticipants} 
             spaceId={id}

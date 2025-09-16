@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 // Dynamic import to avoid SSR issues
 let ExcalidrawComponent: any = null;
@@ -8,6 +8,7 @@ let ExcalidrawComponent: any = null;
 export function ExcalidrawWrapper({ initialData, onChange, ...otherProps }: any) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const apiRef = useRef<any>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -66,6 +67,7 @@ export function ExcalidrawWrapper({ initialData, onChange, ...otherProps }: any)
         initialData={initialData}
         onChange={onChange}
         theme="light"
+        excalidrawAPI={(api: any) => (apiRef.current = api)}
         UIOptions={{
           canvasActions: {
             loadScene: false,

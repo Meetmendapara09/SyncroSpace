@@ -5,9 +5,12 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useDebouncedCallback } from 'use-debounce';
-import { PenSquare } from 'lucide-react';
+import { PenSquare, RotateCcw, RotateCw } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
+import { BoardSwitcher } from '@/components/whiteboard/board-switcher';
+import { Button } from '@/components/ui/button';
+import { DrawingCanvas } from '@/components/whiteboard/drawing-canvas';
 
 // Define the structure for Excalidraw elements and app state
 interface ExcalidrawScene {
@@ -54,8 +57,9 @@ export default function WhiteboardPage() {
     const [scene, setScene] = useState<ExcalidrawScene | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [boardId, setBoardId] = useState<string>('shared');
     
-    const whiteboardDocRef = useMemo(() => doc(db, 'whiteboard', 'shared'), []);
+    const whiteboardDocRef = useMemo(() => doc(db, boardId === 'shared' ? 'whiteboard' : 'whiteboards', boardId), [boardId]);
 
     useEffect(() => {
         setIsLoading(true);
@@ -191,14 +195,10 @@ export default function WhiteboardPage() {
     }
     
     return (
-        <div className="h-full w-full" style={{ height: 'calc(100vh - 4rem)' }}>
-            <ExcalidrawWrapper
-                initialData={{
-                    elements: scene.elements || [],
-                    appState: scene.appState || {},
-                }}
-                onChange={handleExcalidrawChange}
-            />
+        <div className="flex h-full w-full flex-col" style={{ height: 'calc(100vh - 4rem)' }}>
+            <div className="flex-1">
+                <DrawingCanvas boardPath={boardId === 'shared' ? 'whiteboard/shared' : `whiteboards/${boardId}`} />
+            </div>
         </div>
     );
 }
