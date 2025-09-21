@@ -19,7 +19,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { MoreHorizontal, Trash2, UserX, Search, Download } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { deleteUser as deleteFirebaseAuthUser } from 'firebase/auth';
+import { deleteUser as deleteFirebaseAuthUser, sendPasswordResetEmail } from 'firebase/auth';
+import { exportUsers, exportUserDetail } from '@/lib/export-user-data';
+import UserDataExportButton from '@/components/users/user-data-export-button';
+import Link from 'next/link';
 
 export default function UsersPage() {
     const [user] = useAuthState(auth);
@@ -110,29 +113,10 @@ export default function UsersPage() {
 
     const handleExport = () => {
         if (!filteredUsers) return;
-
-        const headers = ['UID', 'Name', 'Email', 'Role', 'Status', 'Joined Date'];
-        const data = filteredUsers.map(doc => {
-            const u = doc.data();
-            return [
-                `"${u.uid}"`,
-                `"${u.name}"`,
-                `"${u.email}"`,
-                `"${u.role}"`,
-                `"${u.deactivatedAt ? 'Deactivated' : 'Active'}"`,
-                `"${u.createdAt?.toDate().toISOString()}"`
-            ].join(',');
-        });
-
-        const csv = [headers.join(','), ...data].join('\n');
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', `syncrospace_users_${new Date().toISOString().split('T')[0]}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        const result = exportUsers(filteredUsers.map(doc => doc.data()));
+        if (result) {
+            toast({ title: 'Export Complete', description: result });
+        }
     };
 
     const loading = userDataLoading || usersLoading;
@@ -232,7 +216,11 @@ export default function UsersPage() {
                                                     <AvatarFallback>{getInitials(u.name)}</AvatarFallback>
                                                 </Avatar>
                                                 <div>
-                                                    <p className="font-semibold">{u.name}</p>
+                                                    <p className="font-semibold">
+                                                        <Link href={`/users/${u.uid}`} className="hover:underline">
+                                                            {u.name}
+                                                        </Link>
+                                                    </p>
                                                     <p className="text-sm text-muted-foreground">{u.email}</p>
                                                 </div>
                                             </div>
@@ -270,9 +258,31 @@ export default function UsersPage() {
                                                         </Button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem onClick={() => {
+                                                          sendPasswordResetEmail(auth, u.email)
+                                                            .then(() => {
+                                                              toast({
+                                                                title: "Password Reset Email Sent",
+                                                                description: `A password reset email has been sent to ${u.email}.`
+                                                              });
+                                                            })
+                                                            .catch((error) => {
+                                                              toast({
+                                                                title: "Error",
+                                                                description: error.message,
+                                                                variant: "destructive"
+                                                              });
+                                                            });
+                                                        }}>
+                                                            <span className="mr-2">🔑</span>
+                                                            Reset Password
+                                                        </DropdownMenuItem>
                                                         <DropdownMenuItem onClick={() => openConfirmationDialog(u, 'deactivate')}>
                                                             <UserX className="mr-2 h-4 w-4" />
                                                             Deactivate
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem>
+                                                            <UserDataExportButton userId={u.uid} />
                                                         </DropdownMenuItem>
                                                         <DropdownMenuSeparator />
                                                         <DropdownMenuItem className="text-destructive" onClick={() => openConfirmationDialog(u, 'delete')}>

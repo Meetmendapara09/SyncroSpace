@@ -25,11 +25,11 @@ You'll need to have [Node.js](https://nodejs.org/en/) (v20 or later) installed o
 
 1.  Clone the repository:
     ```sh
-    git clone https://github.com/Meetmendapara09/SGP_Trial.git
+    git clone https://github.com/Meetmendapara09/SyncroSpace.git
     ```
 2.  Navigate to the project directory:
     ```sh
-    cd SGP_Trial
+    cd SyncroSpace
     ```
 3.  Install NPM packages:
     ```sh

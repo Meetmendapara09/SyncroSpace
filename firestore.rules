@@ -17,16 +17,33 @@ service cloud.firestore {
         return request.auth != null;
     }
     
-    // Allow all authenticated users to read/write for development
-    // In production, you should implement proper security rules
+    // In development, set this to true. In production, set to false.
     function isDevelopment() {
-        return true; // Always true for development
+        return false; // Set to false for production security rules
+    }
+    
+    // Check if user is in a team
+    function isTeamMember(teamName) {
+      let userData = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return userData.teams is list && teamName in userData.teams;
     }
 
     // Admins can read all user data and update roles.
     // Users can read public profiles and manage their own data.
     match /users/{userId} {
-      allow read, write: if isSignedIn() || isDevelopment();
+      // Allow users to read their own data or admins to read any user data
+      allow read: if isUser(userId) || isAdmin() || isDevelopment();
+      
+      // Allow users to update only their own data (except role field)
+      allow update: if (isUser(userId) && 
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])) || 
+          isAdmin() || 
+          isDevelopment();
+      
+      // Only admins can create or delete user documents
+      allow create, delete: if isAdmin() || isDevelopment();
+      
+      // Only admins can list all users
       allow list: if isAdmin() || isDevelopment();
 
       // Notifications are private to each user
@@ -38,6 +55,53 @@ service cloud.firestore {
     }
 
     // Company profile is readable by all authenticated users, writable only by admins.
+      // JIRA-like collections
+      match /issues/{issueId} {
+        allow read: if isSignedIn() || isDevelopment();
+        allow create: if isSignedIn() || isDevelopment();
+        allow update, delete: if isAdmin() || isUser(resource.data.reporter) || isDevelopment();
+      }
+
+      match /projects/{projectId} {
+        allow read: if isSignedIn() || isDevelopment();
+        allow create: if isAdmin() || isDevelopment();
+        // Project owner or admin can update/delete projects
+        allow update, delete: if isAdmin() || isUser(resource.data.owner) || isDevelopment();
+      }
+      
+      // Teams collection for managing teams
+      match /teams/{teamId} {
+        // All signed-in users can read teams
+        allow read: if isSignedIn() || isDevelopment();
+        // Only admins can create, update, and delete teams
+        allow create, update, delete: if isAdmin() || isDevelopment();
+        // Users assigned to a team can read their team details
+        allow list: if isSignedIn() && 
+          (isTeamMember(resource.data.name) || isAdmin() || isDevelopment());
+      }
+
+      match /boards/{boardId} {
+        allow read: if isSignedIn() || isDevelopment();
+        allow create: if isAdmin() || isDevelopment();
+        allow update, delete: if isAdmin() || isDevelopment();
+      }
+
+      match /comments/{commentId} {
+        allow read: if isSignedIn() || isDevelopment();
+        allow create: if isSignedIn() || isDevelopment();
+        allow update, delete: if isUser(resource.data.author) || isAdmin() || isDevelopment();
+      }
+
+      match /attachments/{attachmentId} {
+        allow read: if isSignedIn() || isDevelopment();
+        allow create: if isSignedIn() || isDevelopment();
+        allow update, delete: if isUser(resource.data.uploadedBy) || isAdmin() || isDevelopment();
+      }
+
+      match /workflows/{workflowId} {
+        allow read: if isSignedIn() || isDevelopment();
+        allow create, update, delete: if isAdmin() || isDevelopment();
+      }
     match /companyProfile/main {
         allow read: if isSignedIn();
         allow write: if isAdmin();
@@ -96,6 +160,26 @@ service cloud.firestore {
     match /meetings/{meetingId} {
       allow read, write, list: if isSignedIn() || isDevelopment();
       allow create, delete: if isSignedIn() || isDevelopment();
+    }
+    
+    // Personal Tasks: users can only access their own tasks
+    match /personalTasks/{taskId} {
+      allow read, update, delete: if isUser(resource.data.userId) || isAdmin() || isDevelopment();
+      allow create: if isUser(request.resource.data.userId) || isAdmin() || isDevelopment();
+      allow list: if isSignedIn() && request.query.limit <= 100;
+    }
+    
+    // Announcements: only admins can create, users can read announcements addressed to them
+    match /announcements/{announcementId} {
+      // Allow users to read announcements that include them in recipients
+      allow read: if isSignedIn() && 
+        (resource.data.recipients.hasAny([request.auth.uid]) || isAdmin());
+      
+      // Only admins can create, update, or delete announcements
+      allow create, update, delete: if isAdmin() || isDevelopment();
+      
+      // Only admins can list all announcements
+      allow list: if isAdmin() || isDevelopment();
     }
 
   }

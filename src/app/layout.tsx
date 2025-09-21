@@ -6,6 +6,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { cn } from '@/lib/utils';
 import { Chatbot } from '@/components/chatbot/chatbot';
 import { MeetingReminderService } from '@/components/meeting-reminder-service';
+import { ThemeProvider } from '@/components/ui/theme-provider';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -41,10 +42,12 @@ export default function RootLayout({
         )}
         suppressHydrationWarning={true}
       >
-        {children}
-        <Toaster />
-        <Chatbot />
-        <MeetingReminderService />
+        <ThemeProvider attribute="class" defaultTheme="system">
+          {children}
+          <Toaster />
+          <Chatbot />
+          <MeetingReminderService />
+        </ThemeProvider>
       </body>
     </html>
   );

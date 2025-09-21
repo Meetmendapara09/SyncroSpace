@@ -12,7 +12,7 @@ import { CalendarIcon, Link as LinkIcon, Puzzle, Save, Sparkles, Phone, BellOff 
 import { useEffect, useState } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { GenerateAvatarDialog } from '@/components/account/generate-avatar-dialog';
-import { updateProfile } from 'firebase/auth';
+import { updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -52,125 +52,99 @@ function generateCoolUsername() {
 }
 
 
-function GoogleIcon() {
-  return (
-    <svg viewBox="0 0 48 48" className="h-5 w-5">
-      <path
-        fill="#FFC107"
-        d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12s5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24s8.955,20,20,20s20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"
-      ></path>
-      <path
-        fill="#FF3D00"
-        d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"
-      ></path>
-      <path
-        fill="#4CAF50"
-        d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.222,0-9.657-3.356-11.303-7.962l-6.571,4.819C9.656,39.663,16.318,44,24,44z"
-      ></path>
-      <path
-        fill="#1976D2"
-        d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571l6.19,5.238C43.021,36.251,44,30.413,44,24C44,22.659,43.862,21.35,43.611,20.083z"
-      ></path>
-    </svg>
-  );
-}
-
 export default function AccountPage() {
-  const [user, loading] = useAuthState(auth);
+  const [user] = useAuthState(auth);
   const [userData, setUserData] = useState<any>(null);
+  const [photoUrl, setPhotoUrl] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [pwLoading, setPwLoading] = useState(false);
+  const [pwError, setPwError] = useState<string | null>(null);
+  const [pwSuccess, setPwSuccess] = useState<string | null>(null);
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
   const { toast } = useToast();
 
-  const { control, handleSubmit, reset, setValue, watch, formState: { isDirty, isSubmitting } } = useForm<ProfileFormData>({
-    resolver: zodResolver(profileSchema),
-    defaultValues: { name: '', jobTitle: '', bio: '', skills: '', username: '', countryCode: '', phoneNumber: '', status: '', dnd: false },
-  });
-
-  const dndValue = watch('dnd');
-
   useEffect(() => {
-    if (!user || !reset) return;
-    const fetchUserData = async () => {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          setUserData(data);
-          reset({
-            name: user.displayName || data.name || '',
-            username: data.username || '',
-            jobTitle: data.jobTitle || '',
-            bio: data.bio || '',
-            skills: data.skills || '',
-            birthDate: data.birthDate ? (data.birthDate as Timestamp).toDate() : undefined,
-            countryCode: data.countryCode || '',
-            phoneNumber: data.phoneNumber || '',
-            status: data.status || '',
-            dnd: data.dnd || false,
-          });
-        } else {
-            reset({ name: user.displayName || '' });
+    if (user) {
+      setPhotoUrl(user.photoURL || '');
+      setDisplayName(user.displayName || '');
+      // Fetch user data from Firestore
+      const fetchUserData = async () => {
+        const docRef = doc(db, 'users', user.uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setUserData(docSnap.data());
         }
-    };
-    fetchUserData();
-  }, [user, reset]);
-
-  
-  const handleAvatarUpdate = async (avatarDataUri: string) => {
-    if (!user) return;
-    try {
-      await setDoc(doc(db, 'users', user.uid), { photoURL: avatarDataUri }, { merge: true });
-      setUserData((prev: any) => ({ ...prev, photoURL: avatarDataUri }));
-      toast({
-        title: 'Avatar Updated',
-        description: 'Your new avatar has been saved.',
-      });
-    } catch (error: any) {
-        toast({
-            variant: 'destructive',
-            title: 'Error updating avatar',
-            description: error.message,
-        });
+      };
+      fetchUserData();
     }
-  }
+  }, [user]);
+
+  const profileForm = useForm<ProfileFormData>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: {
+      name: displayName,
+      username: '',
+      jobTitle: '',
+      bio: '',
+      skills: '',
+      birthDate: undefined,
+      countryCode: '',
+      phoneNumber: '',
+      status: '',
+      dnd: false,
+    },
+    mode: 'onChange',
+  });
+  const { control, handleSubmit, setValue, formState: { isDirty, isSubmitting } } = profileForm;
+
+  const handleAvatarUpdate = (url: string) => {
+    setPhotoUrl(url);
+    if (user) {
+      updateProfile(user, { photoURL: url });
+    }
+  };
 
   const onProfileSubmit = async (data: ProfileFormData) => {
     if (!user) return;
     try {
-      const dataToSave: any = { ...data };
-      if (data.birthDate) {
-        dataToSave.birthDate = Timestamp.fromDate(data.birthDate);
-      }
-      if (data.countryCode && data.phoneNumber) {
-        dataToSave.fullPhoneNumber = `${data.countryCode}${data.phoneNumber}`;
-      }
-
-
-      await setDoc(doc(db, 'users', user.uid), dataToSave, { merge: true });
-      
-      if (user.displayName !== data.name) {
-        await updateProfile(user, { displayName: data.name });
-      }
-      
-      setUserData((prev: any) => ({ ...prev, ...data }));
-      reset(data); // Resets the form's dirty state
-      toast({
-        title: 'Profile Saved',
-        description: `Your profile has been updated.`,
-      });
-    } catch (error: any) {
-       toast({
-        variant: 'destructive',
-        title: 'Error updating profile',
-        description: error.message,
-      });
+      await setDoc(doc(db, 'users', user.uid), {
+        ...data,
+        updatedAt: Timestamp.now(),
+      }, { merge: true });
+      toast({ title: 'Profile updated!' });
+    } catch (err: any) {
+      toast({ title: 'Error updating profile', description: err.message, variant: 'destructive' });
     }
-  }
-  
-  const photoUrl = userData?.photoURL || user?.photoURL;
-  const displayName = userData?.name || user?.displayName;
+  };
 
-  const isProviderConnected = (providerId: string) => {
-    return user?.providerData.some(provider => provider.providerId === providerId);
-  }
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwError(null);
+    setPwSuccess(null);
+    if (!user) return;
+    if (!currentPw || !newPw || !confirmPw) {
+      setPwError('All fields are required.');
+      return;
+    }
+    if (newPw !== confirmPw) {
+      setPwError('New passwords do not match.');
+      return;
+    }
+    setPwLoading(true);
+    try {
+      // Re-authenticate user
+      const credential = EmailAuthProvider.credential(user.email!, currentPw);
+      await reauthenticateWithCredential(user, credential);
+      await updatePassword(user, newPw);
+      setPwSuccess('Password updated successfully.');
+      setCurrentPw(''); setNewPw(''); setConfirmPw('');
+    } catch (err: any) {
+      setPwError(err.message);
+    }
+    setPwLoading(false);
+  };
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8">
@@ -181,6 +155,7 @@ export default function AccountPage() {
         </p>
       </div>
 
+      {/* Profile Form */}
       <form onSubmit={handleSubmit(onProfileSubmit)}>
         <Card>
           <CardHeader>
@@ -197,133 +172,122 @@ export default function AccountPage() {
               </Avatar>
               <GenerateAvatarDialog onAvatarGenerated={handleAvatarUpdate} />
             </div>
-
-             <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Controller
-                    name="status"
-                    control={control}
-                    render={({ field }) => <Input id="status" {...field} placeholder="What are you working on?" />}
-                />
+            {/* ...existing profile fields... */}
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <Controller
+                name="status"
+                control={control}
+                render={({ field }) => <Input id="status" {...field} placeholder="What are you working on?" />}
+              />
             </div>
-            
-            <div className="flex items-center justify-between rounded-lg border p-4">
-                <div className="space-y-0.5">
-                    <Label htmlFor="dnd" className="text-base flex items-center gap-2">
-                        <BellOff className={cn("h-4 w-4", dndValue && "text-primary")} />
-                        Do Not Disturb
-                    </Label>
-                    <p className="text-sm text-muted-foreground">
-                        Pause all notifications.
-                    </p>
-                </div>
-                 <Controller
-                    name="dnd"
-                    control={control}
-                    render={({ field }) => (
-                        <Switch
-                            id="dnd"
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                        />
-                    )}
-                />
+            <div className="space-y-2">
+              <Label htmlFor="dnd">Do Not Disturb</Label>
+              <Controller
+                name="dnd"
+                control={control}
+                render={({ field }) => (
+                  <Switch
+                    id="dnd"
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                )}
+              />
             </div>
-
-
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="name">Name</Label>
                 <Controller
-                    name="name"
-                    control={control}
-                    render={({ field }) => <Input id="name" {...field} />}
+                  name="name"
+                  control={control}
+                  render={({ field }) => <Input id="name" {...field} />}
                 />
               </div>
-               <div className="space-y-2">
+              <div className="space-y-2">
                 <Label htmlFor="username">Username</Label>
                 <div className="flex items-center gap-2">
-                    <Controller
-                        name="username"
-                        control={control}
-                        render={({ field }) => <Input id="username" {...field} placeholder="e.g., PixelPioneer" />}
-                    />
-                    <Button type="button" variant="ghost" size="icon" onClick={() => setValue('username', generateCoolUsername(), { shouldDirty: true })}>
-                        <Sparkles className="h-4 w-4" />
-                    </Button>
+                  <Controller
+                    name="username"
+                    control={control}
+                    render={({ field }) => <Input id="username" {...field} placeholder="e.g., PixelPioneer" />}
+                  />
+                  <Button type="button" variant="ghost" size="icon" onClick={() => setValue('username', generateCoolUsername(), { shouldDirty: true })}>
+                    <Sparkles className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="jobTitle">Job Title</Label>
-                 <Controller
-                    name="jobTitle"
-                    control={control}
-                    render={({ field }) => <Input id="jobTitle" {...field} placeholder="Your job title" />}
+                <Controller
+                  name="jobTitle"
+                  control={control}
+                  render={({ field }) => <Input id="jobTitle" {...field} placeholder="Your job title" />}
                 />
               </div>
-               <div className="space-y-2">
-                    <Label htmlFor="phoneNumber">Phone Number</Label>
-                    <div className="flex items-center gap-2">
-                        <Controller
-                            name="countryCode"
-                            control={control}
-                            render={({ field }) => <Input id="countryCode" type="tel" {...field} placeholder="+1" className="w-20" />}
-                        />
-                        <Controller
-                            name="phoneNumber"
-                            control={control}
-                            render={({ field }) => <Input id="phoneNumber" type="tel" {...field} placeholder="555-555-5555" />}
-                        />
-                    </div>
+              <div className="space-y-2">
+                <Label htmlFor="phoneNumber">Phone Number</Label>
+                <div className="flex items-center gap-2">
+                  <Controller
+                    name="countryCode"
+                    control={control}
+                    render={({ field }) => <Input id="countryCode" type="tel" {...field} placeholder="+1" className="w-20" />}
+                  />
+                  <Controller
+                    name="phoneNumber"
+                    control={control}
+                    render={({ field }) => <Input id="phoneNumber" type="tel" {...field} placeholder="555-555-5555" />}
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="birthDate">Birthdate</Label>
                 <Controller
-                    name="birthDate"
-                    control={control}
-                    render={({ field }) => (
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button
-                                variant={"outline"}
-                                className={cn(
-                                    "w-full justify-start text-left font-normal",
-                                    !field.value && "text-muted-foreground"
-                                )}
-                                >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                                <Calendar
-                                mode="single"
-                                selected={field.value}
-                                onSelect={field.onChange}
-                                initialFocus
-                                />
-                            </PopoverContent>
-                        </Popover>
-                    )}
+                  name="birthDate"
+                  control={control}
+                  render={({ field }) => (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  )}
                 />
               </div>
             </div>
-             <div className="space-y-2">
-                <Label htmlFor="bio">Bio</Label>
-                 <Controller
-                    name="bio"
-                    control={control}
-                    render={({ field }) => <Textarea id="bio" {...field} placeholder="Tell us a little bit about yourself." />}
-                />
-              </div>
-               <div className="space-y-2">
-                <Label htmlFor="skills">Skills</Label>
-                 <Controller
-                    name="skills"
-                    control={control}
-                    render={({ field }) => <Input id="skills" {...field} placeholder="Enter skills separated by commas (e.g., React, UI/UX, Project Management)" />}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="bio">Bio</Label>
+              <Controller
+                name="bio"
+                control={control}
+                render={({ field }) => <Textarea id="bio" {...field} placeholder="Tell us a little bit about yourself." />}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="skills">Skills</Label>
+              <Controller
+                name="skills"
+                control={control}
+                render={({ field }) => <Input id="skills" {...field} placeholder="Enter skills separated by commas (e.g., React, UI/UX, Project Management)" />}
+              />
+            </div>
           </CardContent>
           <CardFooter>
             <Button type="submit" disabled={!isDirty || isSubmitting}>
@@ -333,33 +297,64 @@ export default function AccountPage() {
           </CardFooter>
         </Card>
       </form>
-      
-      <Card>
+
+      {/* Assigned Teams/Projects Display */}
+      <Card className="mt-8">
         <CardHeader>
-          <CardTitle>Integration</CardTitle>
-          <CardDescription>
-            Connect your account to third-party services.
-          </CardDescription>
+          <CardTitle>Assigned Teams & Projects</CardTitle>
         </CardHeader>
         <CardContent>
-          <ul className="space-y-4">
-            <li className="flex items-center justify-between rounded-lg border p-4">
-                <div className="flex items-center gap-4">
-                    <GoogleIcon />
-                    <div>
-                        <h3 className="font-semibold">Google</h3>
-                        <p className="text-sm text-muted-foreground">
-                            {isProviderConnected('google.com') ? 'Connected for authentication' : 'Not connected'}
-                        </p>
-                    </div>
-                </div>
-                {isProviderConnected('google.com') ? (
-                    <Button variant="destructive" size="sm" disabled>Disconnect</Button>
-                ) : (
-                    <Button variant="outline" size="sm"><LinkIcon className="mr-2 h-4 w-4" />Connect</Button>
-                )}
-            </li>
-          </ul>
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold mb-2">Teams</h3>
+            {userData?.teams?.length ? (
+              <ul className="list-disc ml-6">
+                {userData.teams.map((team: string, idx: number) => (
+                  <li key={idx}>{team}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground">No teams assigned.</p>
+            )}
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Projects</h3>
+            {userData?.projects?.length ? (
+              <ul className="list-disc ml-6">
+                {userData.projects.map((project: string, idx: number) => (
+                  <li key={idx}>{project}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground">No projects assigned.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Password Change Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Change Password</CardTitle>
+          <CardDescription>Update your account password.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handlePasswordChange} className="space-y-4">
+            <div>
+              <Label htmlFor="currentPw">Current Password</Label>
+              <Input id="currentPw" type="password" value={currentPw} onChange={e => setCurrentPw(e.target.value)} required disabled={pwLoading} />
+            </div>
+            <div>
+              <Label htmlFor="newPw">New Password</Label>
+              <Input id="newPw" type="password" value={newPw} onChange={e => setNewPw(e.target.value)} required disabled={pwLoading} />
+            </div>
+            <div>
+              <Label htmlFor="confirmPw">Confirm New Password</Label>
+              <Input id="confirmPw" type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} required disabled={pwLoading} />
+            </div>
+            {pwError && <p className="text-destructive text-sm">{pwError}</p>}
+            {pwSuccess && <p className="text-green-600 text-sm">{pwSuccess}</p>}
+            <Button type="submit" disabled={pwLoading}>{pwLoading ? 'Updating...' : 'Change Password'}</Button>
+          </form>
         </CardContent>
       </Card>
       <DangerZone />
