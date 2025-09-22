@@ -28,7 +28,17 @@ const SuggestChannelOutputSchema = z.object({
 export type SuggestChannelOutput = z.infer<typeof SuggestChannelOutputSchema>;
 
 export async function suggestChannel(input: SuggestChannelInput): Promise<SuggestChannelOutput> {
-  return suggestChannelFlow(input);
+  // Validate input
+  if (!input.userProfile || !input.userActivity) {
+    throw new Error('User profile and activity information are required.');
+  }
+  
+  try {
+    return await suggestChannelFlow(input);
+  } catch (error: any) {
+    console.error('Error in suggestChannel flow:', error);
+    throw new Error(`Failed to suggest channel: ${error.message || 'AI suggestion service unavailable'}`);
+  }
 }
 
 const prompt = ai.definePrompt({
@@ -53,7 +63,23 @@ const suggestChannelFlow = ai.defineFlow(
     outputSchema: SuggestChannelOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    return output!;
+    try {
+      const {output} = await prompt(input);
+      
+      if (!output) {
+        throw new Error('Empty response received from AI model.');
+      }
+      
+      // Validate output fields have meaningful content
+      if (!output.channelName || !output.channelDescription || !output.reason ||
+          output.channelName.length < 2 || output.channelDescription.length < 10 || output.reason.length < 10) {
+        throw new Error('Invalid or incomplete channel suggestion.');
+      }
+      
+      return output;
+    } catch (error: any) {
+      console.error('Error generating channel suggestion:', error);
+      throw new Error(`Failed to generate channel suggestion: ${error.message || 'AI service error'}`);
+    }
   }
 );

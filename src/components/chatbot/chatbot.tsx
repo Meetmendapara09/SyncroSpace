@@ -14,6 +14,7 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { useDocumentData } from 'react-firebase-hooks/firestore';
 import { auth, db } from '@/lib/firebase';
 import { doc } from 'firebase/firestore';
+import { withAIErrorHandling, createAIFallback } from '@/lib/ai-error-handler';
 
 interface ChatMessage {
     role: 'user' | 'model';
@@ -33,6 +34,44 @@ const adminTemplates = [
     "How do I send an announcement?",
     "How can I edit the company story page?",
 ]
+
+/**
+ * Creates a fallback response for the chatbot when AI is unavailable
+ * Uses simple keyword matching to provide relevant responses
+ */
+function createChatbotFallback(message: string, role?: string): { message: string } {
+    const lowerMessage = message.toLowerCase();
+    
+    // Common fallback responses based on keywords
+    if (lowerMessage.includes('pricing') || lowerMessage.includes('cost') || lowerMessage.includes('subscription')) {
+        return { 
+            message: "SyncroSpace offers three pricing tiers: Free (basic features), Pro ($15/user/month with advanced collaboration), and Enterprise (custom pricing with full features). Please check our pricing page for more details." 
+        };
+    }
+    
+    if (lowerMessage.includes('create') && lowerMessage.includes('space')) {
+        return { 
+            message: "To create a new space: (1) Go to the Spaces tab (2) Click the '+ New Space' button (3) Enter space details (4) Customize your space layout (5) Invite team members. Note: Some features may be limited during this offline period."
+        };
+    }
+    
+    if (lowerMessage.includes('invite') || lowerMessage.includes('add user')) {
+        return { 
+            message: "To invite users: Go to any space, click the 'Invite' button, enter email addresses or share the generated invite link. Users will receive instructions to join."
+        };
+    }
+    
+    if (lowerMessage.includes('analytics') && role === 'admin') {
+        return { 
+            message: "As an admin, you can access analytics in the Admin dashboard. Go to Dashboard > Analytics to view metrics on user engagement, space usage, and meeting activities."
+        };
+    }
+    
+    // Default fallback response
+    return {
+        message: "I apologize, but I'm currently in offline mode due to a service interruption. The SyncroSpace team has been notified. Basic information: SyncroSpace is a virtual collaboration platform with customizable spaces, proximity chat, kanban boards, and meeting tools. For urgent assistance, please contact support@syncro.space."
+    };
+}
 
 export function Chatbot() {
     const { isOpen, toggleChatbot } = useChatbotStore();
@@ -68,14 +107,25 @@ export function Chatbot() {
         scrollToBottom();
 
         try {
-            const response = await chat({
-                history: newMessages.slice(0, -1),
-                message: messageToSend,
-                role: userData?.role
-            });
+            // Create fallback content based on the message
+            const fallbackResponse = createChatbotFallback(messageToSend, userData?.role);
+            
+            const response = await withAIErrorHandling(
+                async () => chat({
+                    history: newMessages.slice(0, -1),
+                    message: messageToSend,
+                    role: userData?.role
+                }),
+                { 
+                    operation: 'Chatbot response',
+                    timeoutMs: 15000,
+                    maxRetries: 1,
+                    fallbackFn: () => fallbackResponse
+                }
+            );
             setMessages([...newMessages, { role: 'model', content: response.message }]);
-        } catch (error) {
-            setMessages([...newMessages, { role: 'model', content: 'Sorry, I encountered an error. Please try again.' }]);
+        } catch (error: any) {
+            setMessages([...newMessages, { role: 'model', content: `Sorry, I encountered an error: ${error.message || 'Please try again.'}` }]);
         } finally {
             setIsLoading(false);
             scrollToBottom();

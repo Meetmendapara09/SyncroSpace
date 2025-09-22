@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { doc, setDoc, onSnapshot, DocumentData, addDoc, collection, serverTimestamp, updateDoc, getDoc, arrayRemove } from 'firebase/firestore';
 import officeMapData from '@/../map.json';
 import { summarizeMeeting } from '@/ai/flows/summarize-meeting';
+import { withAIErrorHandling, createAIFallback } from '@/lib/ai-error-handler';
 import { useRouter } from 'next/navigation';
 import { createRoom, joinRoom, hangUp, startLocalMedia, RoomHandles } from '@/lib/webrtc';
 
@@ -255,8 +256,32 @@ export function VirtualSpace({ participants: initialParticipants, spaceId }: { p
       reader.onloadend = async () => {
         const base64Audio = reader.result as string;
         toast({ title: 'Recording stopped', description: 'Generating meeting summary...' });
+        
+        // Create a basic fallback summary based on recording duration and room name
+        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+        const recordingLengthSeconds = Math.round(audioBlob.size / 16000); // Rough estimation
+        const recordingLengthMinutes = Math.max(1, Math.round(recordingLengthSeconds / 60));
+        const recordingDate = new Date().toLocaleDateString();
+        
+        // Create fallback content
+        const fallbackSummary = {
+          summary: `[Offline Summary] Meeting in ${spaceId} on ${recordingDate} (approximately ${recordingLengthMinutes} minute${recordingLengthMinutes !== 1 ? 's' : ''}).\n\nThis offline summary was generated because the AI summarization service is currently unavailable. The recording has been saved and will be processed when the service is restored.`,
+          actionItems: ["Review recording when AI service is available", "Manual notes recommended"],
+          transcript: `[Transcript unavailable - AI service offline]\n\nRecording length: ${recordingLengthMinutes} minute${recordingLengthMinutes !== 1 ? 's' : ''}`
+        };
+        
         try {
-            const result = await summarizeMeeting({ audioDataUri: base64Audio });
+            const result = await withAIErrorHandling(
+              async () => summarizeMeeting({ audioDataUri: base64Audio }),
+              {
+                operation: 'Meeting summarization',
+                timeoutMs: 60000, // Audio processing can take longer
+                maxRetries: 1,
+                silent: true, // We'll handle the toast ourselves
+                fallbackFn: () => fallbackSummary
+              }
+            );
+            
             const messagesCollection = collection(db, `spaces/${spaceId}/messages`);
             await addDoc(messagesCollection, {
                 uid: 'ai-assistant',
@@ -266,10 +291,27 @@ export function VirtualSpace({ participants: initialParticipants, spaceId }: { p
                 actionItems: result.actionItems,
                 transcript: result.transcript,
                 timestamp: serverTimestamp(),
+                isOfflineSummary: result === fallbackSummary
             });
-            toast({ title: 'Meeting Summary Ready', description: 'The summary has been posted to the chat.' });
+            
+            // Different message if using fallback
+            if (result === fallbackSummary) {
+              toast({ 
+                title: 'Basic Summary Ready', 
+                description: 'The AI service is currently unavailable. A basic summary has been posted.'
+              });
+            } else {
+              toast({ 
+                title: 'Meeting Summary Ready', 
+                description: 'The summary has been posted to the chat.'
+              });
+            }
         } catch (error: any) {
-            toast({ variant: 'destructive', title: 'Summarization Failed', description: error.message });
+            toast({ 
+                variant: 'destructive', 
+                title: 'Summarization Failed', 
+                description: error.message || 'Could not generate meeting summary. The audio may be too long or unclear.'
+            });
         }
       };
     };

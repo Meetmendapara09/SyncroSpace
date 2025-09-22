@@ -27,7 +27,7 @@ export function ThemeProvider({
   
   return (
     <NextThemesProvider
-      attribute={attribute}
+      attribute={attribute as 'class' | 'data-theme' | undefined}
       defaultTheme={userTheme}
       enableSystem={enableSystem}
       storageKey={storageKey}

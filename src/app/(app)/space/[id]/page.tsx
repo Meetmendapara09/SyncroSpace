@@ -4,7 +4,7 @@ import * as React from 'react';
 import { VirtualSpace } from '@/components/space/virtual-space';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ChatPanel } from '@/components/space/chat-panel';
-import { Hash, Users, UserPlus } from 'lucide-react';
+import { Hash, Users, UserPlus, MapPin } from 'lucide-react';
 import { useDocument, useCollection } from 'react-firebase-hooks/firestore';
 import { doc, collection, query, where, updateDoc, serverTimestamp, Timestamp, getDoc, getDocs, deleteDoc, arrayUnion } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
@@ -12,12 +12,19 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InviteDialog } from '@/components/space/invite-dialog';
 import { Button } from '@/components/ui/button';
+import MapView from '@/components/space/MapView';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useToast } from '@/hooks/use-toast';
 
 export default function SpacePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
   const [user] = useAuthState(auth);
   const spaceRef = doc(db, 'spaces', id);
   const [spaceSnapshot, spaceLoading, spaceError] = useDocument(spaceRef);
+  const [activeTab, setActiveTab] = React.useState<string>('virtual');
+  const [userPosition, setUserPosition] = React.useState<{ x: number, y: number } | null>(null);
+  const { toast } = useToast();
   
   const spaceData = spaceSnapshot?.data();
   const memberIds = spaceData?.members || [];
@@ -43,6 +50,35 @@ export default function SpacePage({ params }: { params: Promise<{ id: string }> 
       return !hiddenMeetings.includes(id);
     });
   }, [allMembers, id]);
+  
+  // Handle user position change
+  const handlePositionChange = React.useCallback(async (x: number, y: number) => {
+    try {
+      if (!user || !isMember) return;
+      
+      setUserPosition({ x, y });
+      
+      // Update user position in firestore
+      if (user.uid) {
+        await updateDoc(doc(db, 'users', user.uid), {
+          [`spacePositions.${id}`]: { x, y, timestamp: serverTimestamp() },
+          lastActivity: serverTimestamp()
+        });
+        
+        // Also update the space document with the latest activity
+        await updateDoc(doc(db, 'spaces', id), {
+          lastActivity: serverTimestamp()
+        });
+      }
+    } catch (error) {
+      console.error('Failed to update position:', error);
+      toast({
+        title: "Error updating position",
+        description: "Failed to synchronize your position with other users",
+        variant: "destructive"
+      });
+    }
+  }, [user, id, isMember, toast]);
   
   const loading = spaceLoading || (memberIds.length > 0 && usersLoading);
   
@@ -244,7 +280,40 @@ export default function SpacePage({ params }: { params: Promise<{ id: string }> 
         </header>
         <div className="flex-1 relative">
              {spaceSnapshot?.exists() ? (
-                <VirtualSpace participants={activeParticipants} spaceId={id} />
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full">
+                    <div className="absolute top-2 right-2 z-10">
+                        <TabsList>
+                            <TabsTrigger value="virtual">Virtual Space</TabsTrigger>
+                            <TabsTrigger value="map">Map View</TabsTrigger>
+                        </TabsList>
+                    </div>
+                    
+                    <TabsContent value="virtual" className="h-full">
+                        <VirtualSpace participants={activeParticipants} spaceId={id} />
+                    </TabsContent>
+                    
+                    <TabsContent value="map" className="h-full">
+                        {!isMember && (
+                            <Alert className="mb-4">
+                                <AlertDescription>
+                                    Join this space to interact with other members in the virtual office.
+                                </AlertDescription>
+                            </Alert>
+                        )}
+                        <MapView 
+                            onPositionChange={handlePositionChange}
+                            participants={activeParticipants.map(p => ({
+                                uid: p.uid,
+                                x: p.spacePositions?.[id]?.x || 0,
+                                y: p.spacePositions?.[id]?.y || 0,
+                                photoURL: p.photoURL
+                            }))}
+                            userId={user?.uid}
+                            width="100%"
+                            height="100%"
+                        />
+                    </TabsContent>
+                </Tabs>
              ) : (
                 <div className="flex items-center justify-center h-full">
                     <p className="text-muted-foreground">This space does not exist or you do not have permission to view it.</p>

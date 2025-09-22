@@ -39,13 +39,27 @@ export default function CompanyPage() {
     }
   }, [profileData]);
 
-  // Increment profile view count
+  // Increment profile view count - only once per session
   useEffect(() => {
-    if (!profileLoading && profileSnapshot) {
-      const views = profileData?.views || 0;
-      updateDoc(companyProfileRef, { views: views + 1 });
+    // Use a flag in localStorage to ensure we only count once per session
+    const viewCountKey = 'company_profile_viewed';
+    const hasViewed = localStorage.getItem(viewCountKey);
+    
+    if (!profileLoading && profileSnapshot && !hasViewed && user) {
+      try {
+        const views = profileData?.views || 0;
+        updateDoc(companyProfileRef, { views: views + 1 })
+          .then(() => {
+            localStorage.setItem(viewCountKey, 'true');
+          })
+          .catch(error => {
+            console.error("Failed to update view count:", error);
+          });
+      } catch (error) {
+        console.error("Error in view count effect:", error);
+      }
     }
-  }, [profileLoading, profileSnapshot]);
+  }, [profileLoading, profileSnapshot, user]);
 
   const handleSave = async () => {
     try {

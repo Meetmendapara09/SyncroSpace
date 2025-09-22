@@ -32,7 +32,12 @@ export async function chat(input: ChatInput): Promise<ChatOutput> {
     return { message: "I'm here to help! Please ask me a question about SyncroSpace." };
   }
   
-  return chatFlow(input);
+  try {
+    return await chatFlow(input);
+  } catch (error: any) {
+    console.error('Error in chat flow:', error);
+    throw new Error(`Failed to generate response: ${error.message || 'Unknown AI error'}`);
+  }
 }
 
 const chatFlow = ai.defineFlow(
@@ -62,7 +67,18 @@ Keep answers concise, positive, and helpful.`;
 
     const prompt = `${context}\n\nConversation so far:\n${historyText}\n\nUser: ${message}\nAssistant:`;
 
-    const { output } = await ai.generate(prompt);
-    return { message: output ?? '' };
+    try {
+      const { output } = await ai.generate(prompt);
+      
+      // Validate output
+      if (!output || output.trim() === '') {
+        throw new Error('Empty response from AI model');
+      }
+      
+      return { message: output };
+    } catch (error: any) {
+      console.error('Error generating chatbot response:', error);
+      throw new Error(`AI response generation failed: ${error.message || 'Unknown error'}`);
+    }
   }
 );

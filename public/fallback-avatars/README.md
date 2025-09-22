@@ -1,0 +1,1 @@
+This is a placeholder. In a real implementation, place 5 fallback avatar PNG files here named avatar1.png through avatar5.png.

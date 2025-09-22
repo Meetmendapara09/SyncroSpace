@@ -11,6 +11,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { contact } from "@/ai/flows/contact";
+import { withAIErrorHandling } from "@/lib/ai-error-handler";
 
 const contactSchema = z.object({
   name: z.string().min(1, 'Name is required.'),
@@ -32,7 +33,16 @@ export default function ContactPage() {
 
     const onSubmit = async (data: ContactFormData) => {
         try {
-            const result = await contact(data);
+            const result = await withAIErrorHandling(
+                async () => contact(data),
+                {
+                    operation: 'Contact form submission',
+                    timeoutMs: 10000,
+                    maxRetries: 1,
+                    silent: true
+                }
+            );
+            
             if (result.success) {
                 toast({
                     title: 'Message Sent!',
@@ -46,7 +56,7 @@ export default function ContactPage() {
             toast({
                 variant: 'destructive',
                 title: 'Error Sending Message',
-                description: error.message || 'An unknown error occurred.',
+                description: error.message || 'Unable to send message. Please try again later.',
             });
         }
     };

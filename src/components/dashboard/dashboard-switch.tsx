@@ -10,7 +10,7 @@ import { LayoutDashboard, LayoutPanelLeft } from 'lucide-react';
 
 export function DashboardSwitch() {
   const pathname = usePathname();
-  const isCustomDashboard = pathname.includes('customized');
+  const isCustomDashboard = pathname?.includes('customized') ?? false;
   
   return (
     <Card className="shadow-sm">

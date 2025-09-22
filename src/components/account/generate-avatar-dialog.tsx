@@ -21,6 +21,7 @@ import { uploadFile } from '@/lib/firebase-upload';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Skeleton } from '../ui/skeleton';
+import { withAIErrorHandling, createAIFallback } from '@/lib/ai-error-handler';
 
 export function GenerateAvatarDialog({ onAvatarGenerated }: { onAvatarGenerated: (dataUri: string) => void }) {
   const [open, setOpen] = useState(false);
@@ -30,18 +31,62 @@ export function GenerateAvatarDialog({ onAvatarGenerated }: { onAvatarGenerated:
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  // Define a set of fallback avatars to use when AI generation is unavailable
+  const fallbackAvatars = [
+    "/fallback-avatars/avatar1.png",
+    "/fallback-avatars/avatar2.png", 
+    "/fallback-avatars/avatar3.png",
+    "/fallback-avatars/avatar4.png",
+    "/fallback-avatars/avatar5.png"
+  ];
+
+  // Get a fallback avatar based on the prompt to have some deterministic behavior
+  const getFallbackAvatar = (prompt: string) => {
+    // Simple hash function to convert prompt to a number
+    const hash = prompt.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    // Use the hash to select a fallback avatar
+    const index = hash % fallbackAvatars.length;
+    return fallbackAvatars[index];
+  };
+
   const handleGenerate = async () => {
     if (!prompt) return;
     setIsLoading(true);
     setGeneratedAvatar(null);
+    
     try {
-      const result = await generateAvatar({ prompt });
+      // Create fallback response with placeholder avatar
+      const fallbackAvatar = getFallbackAvatar(prompt);
+      const fallbackResult = createAIFallback({
+        avatarDataUri: fallbackAvatar
+      });
+      
+      const result = await withAIErrorHandling(
+        async () => generateAvatar({ prompt }),
+        {
+          operation: 'Avatar generation',
+          timeoutMs: 20000, // Image generation can take longer
+          maxRetries: 1,
+          fallbackFn: fallbackResult,
+          silent: true // We'll handle the toast ourselves for more customization
+        }
+      );
+      
       setGeneratedAvatar(result.avatarDataUri);
+      
+      // If using a fallback avatar, notify the user
+      if (fallbackAvatars.includes(result.avatarDataUri)) {
+        toast({
+          title: 'Using Preset Avatar',
+          description: 'AI generation is currently unavailable. Using a preset avatar instead.',
+          variant: 'default'
+        });
+      }
     } catch (error: any) {
       toast({
         variant: 'destructive',
         title: 'Avatar Generation Failed',
-        description: error.message || 'Please try again.',
+        description: error.message || 'Please try again with a different prompt.',
       });
     } finally {
       setIsLoading(false);
