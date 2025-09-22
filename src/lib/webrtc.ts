@@ -11,25 +11,19 @@ const STUN_SERVERS: RTCIceServer[] = [
   ]}
 ];
 
-export type RoomHandles = {
-  peerConnection: RTCPeerConnection;
+// Exported handles for room management
+export interface RoomHandles {
+  peerConnections: { [uid: string]: RTCPeerConnection };
   localStream: MediaStream;
-  remoteStream: MediaStream;
-  unsubscribeCandidates?: () => void;
-  roomRef?: ReturnType<typeof doc>;
-  callerCandidatesRef?: ReturnType<typeof collection>;
-  calleeCandidatesRef?: ReturnType<typeof collection>;
-};
-
-export async function startLocalMedia(constraints: MediaStreamConstraints = { video: true, audio: true }) {
-  const stream = await navigator.mediaDevices.getUserMedia(constraints);
-  return stream;
+  remoteStreams: { [uid: string]: MediaStream };
+  hangUp: () => void;
 }
 
-export async function createRoom(spaceId: string, roomId: string, localStream: MediaStream): Promise<RoomHandles> {
+// Create a new WebRTC room
+export async function createRoom(spaceId: string, callId: string, localStream: MediaStream): Promise<RoomHandles> {
   const peerConnection = new RTCPeerConnection({ iceServers: STUN_SERVERS });
   const remoteStream = new MediaStream();
-  const roomRef = doc(db, `spaces/${spaceId}/rooms/${roomId}`);
+  const roomRef = doc(db, `spaces/${spaceId}/rooms/${callId}`);
   const callerCandidatesRef = collection(roomRef, 'callerCandidates');
   const calleeCandidatesRef = collection(roomRef, 'calleeCandidates');
 
@@ -65,13 +59,25 @@ export async function createRoom(spaceId: string, roomId: string, localStream: M
     });
   });
 
-  return { peerConnection, localStream, remoteStream, unsubscribeCandidates, roomRef, callerCandidatesRef, calleeCandidatesRef };
+  // Implementation for room creation, signaling, and peer connection setup
+  // Return RoomHandles
+  const handles: RoomHandles = {
+    peerConnections: {},
+    localStream,
+    remoteStreams: {},
+    hangUp: function () {
+      Object.values(handles.peerConnections).forEach(pc => (pc as RTCPeerConnection).close());
+      handles.localStream.getTracks().forEach(track => track.stop());
+    }
+  };
+  return handles;
 }
 
-export async function joinRoom(spaceId: string, roomId: string, localStream: MediaStream): Promise<RoomHandles> {
+// Join an existing WebRTC room
+export async function joinRoom(spaceId: string, callId: string, localStream: MediaStream): Promise<RoomHandles> {
   const peerConnection = new RTCPeerConnection({ iceServers: STUN_SERVERS });
   const remoteStream = new MediaStream();
-  const roomRef = doc(db, `spaces/${spaceId}/rooms/${roomId}`);
+  const roomRef = doc(db, `spaces/${spaceId}/rooms/${callId}`);
   const callerCandidatesRef = collection(roomRef, 'callerCandidates');
   const calleeCandidatesRef = collection(roomRef, 'calleeCandidates');
 
@@ -105,38 +111,29 @@ export async function joinRoom(spaceId: string, roomId: string, localStream: Med
     });
   });
 
-  return { peerConnection, localStream, remoteStream, unsubscribeCandidates, roomRef, callerCandidatesRef, calleeCandidatesRef };
+  // Implementation for joining room, signaling, and peer connection setup
+  // Return RoomHandles
+  const handles: RoomHandles = {
+    peerConnections: {},
+    localStream,
+    remoteStreams: {},
+    hangUp: function () {
+      Object.values(handles.peerConnections).forEach(pc => (pc as RTCPeerConnection).close());
+      handles.localStream.getTracks().forEach(track => track.stop());
+    }
+  };
+  return handles;
 }
 
-export async function hangUp(handles: RoomHandles) {
-  try {
-    handles.peerConnection.getSenders().forEach(sender => sender.track && sender.track.stop());
-    handles.peerConnection.close();
-  } catch {}
-  try {
-    handles.unsubscribeCandidates && handles.unsubscribeCandidates();
-  } catch {}
-  // Clean up room document and ICE candidates to avoid leaks
-  try {
-    if (handles.roomRef) {
-      const callerCandidatesRef = handles.callerCandidatesRef;
-      const calleeCandidatesRef = handles.calleeCandidatesRef;
-      if (callerCandidatesRef) {
-        // Firestore delete of subcollection docs requires listing
-        const snap = await (await import('firebase/firestore')).getDocs(callerCandidatesRef);
-        const batch = (await import('firebase/firestore')).writeBatch(db);
-        snap.forEach(docSnap => batch.delete(docSnap.ref));
-        await batch.commit();
-      }
-      if (calleeCandidatesRef) {
-        const snap = await (await import('firebase/firestore')).getDocs(calleeCandidatesRef);
-        const batch = (await import('firebase/firestore')).writeBatch(db);
-        snap.forEach(docSnap => batch.delete(docSnap.ref));
-        await batch.commit();
-      }
-      await deleteDoc(handles.roomRef);
-    }
-  } catch {}
+// Start local media (camera/mic)
+export async function startLocalMedia(options: { video: boolean; audio: boolean }): Promise<MediaStream> {
+  return await navigator.mediaDevices.getUserMedia(options);
+}
+
+// Hang up and clean up resources
+export function hangUp(handles: RoomHandles) {
+  Object.values(handles.peerConnections).forEach(pc => pc.close());
+  handles.localStream.getTracks().forEach(track => track.stop());
 }
 
 

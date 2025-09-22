@@ -175,41 +175,35 @@ class MapScene extends Phaser.Scene {
         }
       }
     }
-    
-    // Update other players' positions and labels
-    this.updateOtherPlayers();
-  }
-  
-  // Add a new player to the map
-  addOtherPlayer(id: string, x: number, y: number, photoURL?: string): void {
-    try {
-      // Create avatar sprite for the other player
-      const sprite = this.add.sprite(x, y, 'avatar');
-      sprite.setDisplaySize(GRID_SIZE, GRID_SIZE);
-      
-      // Generate a consistent color for this player based on their ID
-      const colorIndex = Math.abs(id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)) % AVATAR_COLORS.length;
-      sprite.setTint(AVATAR_COLORS[colorIndex]);
-      
-      // Add name label above avatar
-      const displayName = id.substring(0, 6) + (id.length > 6 ? '...' : '');
-      const label = this.add.text(x, y - GRID_SIZE / 1.5, displayName, {
-        fontSize: '12px',
-        color: '#FFFFFF',
-        backgroundColor: '#00000080',
-        padding: { x: 4, y: 2 },
-      }).setOrigin(0.5);
-      
-      // Add to our tracking map
-      this.otherPlayers.set(id, {
-        sprite,
-        label,
-        target: { x, y },
-      });
-      
-      console.log(`Added player ${id} at (${x}, ${y})`);
-    } catch (error) {
-      console.error('Error adding other player:', error);
+        const handleSceneError = useCallback((message: string) => {
+          setError(message);
+          // Check if error is about missing assets
+          if (message.includes('Failed to load asset:')) {
+            const assetName = message.replace('Failed to load asset:', '').trim();
+            setMissingAssets(prev => [...prev, assetName]);
+            // Only show toast for the first few missing assets to avoid spamming
+            if (missingAssets.length < 3) {
+              toast({
+                title: "Asset Loading Error",
+                description: `Could not load map asset: ${assetName}. The map may not display correctly.`,
+                variant: "destructive",
+              });
+            } else if (missingAssets.length === 3) {
+              toast({
+                title: "Multiple Assets Missing",
+                description: "Several map assets could not be loaded. The map may not display correctly.",
+                variant: "destructive",
+              });
+            }
+          } else {
+            // For other errors, show the toast
+            toast({
+              title: "Map Error",
+              description: message,
+              variant: "destructive",
+            });
+          }
+        }, [toast, missingAssets]);
     }
   }
   
@@ -230,21 +224,16 @@ class MapScene extends Phaser.Scene {
       entry.sprite.destroy();
       entry.label.destroy();
       this.otherPlayers.delete(id);
-      console.log(`Removed player ${id}`);
     }
   }
-
   // Interpolate other players' positions and update labels
   updateOtherPlayers(): void {
-    this.otherPlayers.forEach(({ sprite, label, target }) => {
-      // Interpolate position for smooth movement
+    this.otherPlayers.forEach(({ sprite, label, target }, id) => {
+      // Interpolate position
       const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-      
-      // Apply interpolation with a smooth factor
-      sprite.x = lerp(sprite.x, target.x, 0.1);
-      sprite.y = lerp(sprite.y, target.y, 0.1);
-      
-      // Update label position to follow the sprite
+      sprite.x = lerp(sprite.x, target.x, 0.2);
+      sprite.y = lerp(sprite.y, target.y, 0.2);
+      // Update label position
       label.x = sprite.x;
       label.y = sprite.y - GRID_SIZE / 1.5;
     });
@@ -259,50 +248,43 @@ interface MapViewProps {
     y?: number;
     photoURL?: string;
   }>;
-  userId?: string;
-  width?: string | number;
-  height?: string | number;
-}
-
-const MapView: React.FC<MapViewProps> = ({ 
-  onPositionChange, 
-  participants = [], 
-  userId = '',
-  width = '100%',
-  height = '100%'
-}) => {
-  // References
-  const phaserRef = useRef<HTMLDivElement>(null);
-  const gameInstanceRef = useRef<Phaser.Game | null>(null);
-  const sceneRef = useRef<MapScene | null>(null);
-  
-  // State
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [missingAssets, setMissingAssets] = useState<string[]>([]);
-  
-  // Hooks
-  const { toast } = useToast();
-  
-  // Handle errors from the scene
-  const handleSceneError = useCallback((message: string) => {
-    setError(message);
-    
-    // Check if error is about missing assets
-    if (message.includes('Failed to load asset:')) {
-      const assetName = message.replace('Failed to load asset:', '').trim();
-      setMissingAssets(prev => [...prev, assetName]);
-      
-      // Only show toast for the first few missing assets to avoid spamming
-      if (missingAssets.length < 3) {
-        toast({
-          title: "Asset Loading Error",
-          description: `Could not load map asset: ${assetName}. The map may not display correctly.`,
-          variant: "destructive",
-        });
-      } else if (missingAssets.length === 3) {
-        toast({
-          title: "Multiple Assets Missing",
+  update(): void {
+    if (!this.avatar || !this.cursors) {
+      return;
+    }
+    // Movement speed
+    const speed = 150;
+    this.avatar.setVelocity(0);
+    // Track position before movement
+    const prevX = this.avatar.x;
+    const prevY = this.avatar.y;
+    // Handle movement
+    if (this.cursors.left && this.cursors.left.isDown) {
+      this.avatar.setVelocityX(-speed);
+    } else if (this.cursors.right && this.cursors.right.isDown) {
+      this.avatar.setVelocityX(speed);
+    }
+    if (this.cursors.up && this.cursors.up.isDown) {
+      this.avatar.setVelocityY(-speed);
+    } else if (this.cursors.down && this.cursors.down.isDown) {
+      this.avatar.setVelocityY(speed);
+    }
+    // Don't update position unless it actually changed
+    if (prevX !== this.avatar.x || prevY !== this.avatar.y) {
+      // Throttle position updates to reduce Firestore writes
+      // Only send updates every few frames
+      const now = Date.now();
+      if (!this._lastPositionUpdate || now - this._lastPositionUpdate > 200) {
+        this._lastPositionUpdate = now;
+        // Notify position change if callback is provided
+        if (this.onPositionChange) {
+          this.onPositionChange(this.avatar.x, this.avatar.y);
+        }
+      }
+    }
+    // Update other players' positions and labels
+    this.updateOtherPlayers();
+  }
           description: "Several map assets could not be loaded. The map may not display correctly.",
           variant: "destructive"
         });
@@ -378,6 +360,7 @@ const MapView: React.FC<MapViewProps> = ({
     }
   }, [onPositionChange, handleSceneError]);
   
+
   // Update other players whenever participants change
   useEffect(() => {
     if (!sceneRef.current) return;
@@ -385,15 +368,15 @@ const MapView: React.FC<MapViewProps> = ({
     participants.forEach(participant => {
       // Skip the current user
       if (participant.uid !== userId) {
-        if (typeof participant.x === 'number' && typeof participant.y === 'number') {
+        if (typeof participant.x === 'number' && typeof participant.y === 'number' && sceneRef.current) {
           // Check if player already exists
-          const exists = sceneRef.current?.otherPlayers.has(participant.uid) ?? false;
-          if (exists) {
+          const exists = sceneRef.current.otherPlayers.has(participant.uid);
+          if (exists && sceneRef.current) {
             // Update position
-            sceneRef.current?.updateOtherPlayer(participant.uid, participant.x, participant.y);
-          } else {
+            sceneRef.current.updateOtherPlayer(participant.uid, participant.x, participant.y);
+          } else if (sceneRef.current) {
             // Add new player
-            sceneRef.current?.addOtherPlayer(participant.uid, participant.x, participant.y, participant.photoURL);
+            sceneRef.current.addOtherPlayer(participant.uid, participant.x, participant.y, participant.photoURL);
           }
         }
       }
@@ -401,11 +384,13 @@ const MapView: React.FC<MapViewProps> = ({
     
     // Clean up any players that left
     const participantIds = new Set(participants.map(p => p.uid));
-    sceneRef.current.otherPlayers.forEach((_, id) => {
-      if (!participantIds.has(id)) {
-        sceneRef.current?.removeOtherPlayer(id);
-      }
-    });
+    if (sceneRef.current) {
+      sceneRef.current.otherPlayers.forEach((_, id) => {
+        if (!participantIds.has(id) && sceneRef.current) {
+          sceneRef.current.removeOtherPlayer(id);
+        }
+      });
+    }
   }, [participants, userId]);
 
   return (

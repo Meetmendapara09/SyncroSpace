@@ -11,12 +11,40 @@ import { db, auth } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Edit, Save, Building, PlusCircle } from 'lucide-react';
 import Image from 'next/image';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
+import { MarkdownEditor } from '@/components/ui/markdown-editor';
 
 const companyProfileRef = doc(db, 'companyProfile', 'main');
+
+// Helper function to provide a template for new markdown content
+const getMarkdownTemplate = () => {
+  return `# Our Company Story
+
+## About Us
+We are passionate about creating innovative solutions that bring people together.
+
+## Our Mission
+To provide exceptional tools for collaboration and communication.
+
+## Our Values
+- **Innovation**: We're committed to pushing boundaries
+- **Integrity**: We operate with honesty and transparency
+- **Excellence**: We strive for outstanding quality in everything we do
+
+## Our Journey
+Founded in 2020, we've grown from a small team to a thriving community of professionals.
+
+> "The best way to predict the future is to create it."
+
+## Join Our Team
+[Visit our careers page](/careers) to learn more about opportunities to join our growing team.
+`;
+};
 
 export default function CompanyPage() {
   const [user, userLoading] = useAuthState(auth);
@@ -63,10 +91,17 @@ export default function CompanyPage() {
 
   const handleSave = async () => {
     try {
-      await setDoc(companyProfileRef, { story }, { merge: true });
+      // Trim the content but preserve newlines for markdown formatting
+      const trimmedStory = story.trim();
+      
+      await setDoc(companyProfileRef, { 
+        story: trimmedStory,
+        lastUpdated: new Date().toISOString()
+      }, { merge: true });
+      
       toast({
         title: 'Company Story Updated',
-        description: 'The company profile has been saved.',
+        description: 'The company profile has been saved with Markdown formatting.',
       });
       setIsEditing(false);
     } catch (error: any) {
@@ -159,14 +194,21 @@ export default function CompanyPage() {
                 </div>
             </div>
             {isAdmin && (
-                <div className="flex gap-2">
-                    {isEditing ? (
-                        <>
-                            <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
-                            <Button onClick={handleSave}><Save className="mr-2 h-4 w-4" /> Save Changes</Button>
-                        </>
-                    ) : (
-                        <Button onClick={() => setIsEditing(true)}><Edit className="mr-2 h-4 w-4" /> Edit Page</Button>
+                <div className="flex flex-col">
+                    <div className="flex gap-2">
+                        {isEditing ? (
+                            <>
+                                <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
+                                <Button onClick={handleSave}><Save className="mr-2 h-4 w-4" /> Save Changes</Button>
+                            </>
+                        ) : (
+                            <Button onClick={() => setIsEditing(true)}><Edit className="mr-2 h-4 w-4" /> Edit Page</Button>
+                        )}
+                    </div>
+                    {isEditing && (
+                        <div className="text-xs text-muted-foreground mt-2">
+                            Supports <a href="https://www.markdownguide.org/basic-syntax/" target="_blank" rel="noreferrer" className="text-primary underline">Markdown</a> for rich formatting
+                        </div>
                     )}
                 </div>
             )}
@@ -174,17 +216,42 @@ export default function CompanyPage() {
 
         <Card>
             <CardContent className="p-6">
-                <div className="prose dark:prose-invert max-w-none">
+                <div className="w-full">
                     {isEditing ? (
-                        <Textarea
-                            value={story}
-                            onChange={(e) => setStory(e.target.value)}
-                            rows={15}
-                            className="text-base"
-                            placeholder="Tell your company's story..."
-                        />
+                        <>
+                            <MarkdownEditor
+                                value={story || getMarkdownTemplate()}
+                                onChange={setStory}
+                                rows={15}
+                                placeholder="Tell your company's story using Markdown..."
+                                className="border-0"
+                            />
+                            <div className="text-xs mt-2 text-muted-foreground">
+                                <strong>Tip:</strong> Use Markdown to format your text - headings (#), bold (**text**), links [text](url), lists, etc.
+                            </div>
+                        </>
                     ) : (
-                        <p>{story || 'The story has not been written yet. An admin can add it.'}</p>
+                        story ? (
+                            <>
+                                <div className="markdown-content">
+                                    <ReactMarkdown 
+                                        remarkPlugins={[remarkGfm]} 
+                                        rehypePlugins={[rehypeRaw]}
+                                    >
+                                        {story}
+                                    </ReactMarkdown>
+                                </div>
+                                {profileData?.lastUpdated && (
+                                    <div className="text-xs text-muted-foreground mt-6 text-right">
+                                        Last updated: {new Date(profileData.lastUpdated).toLocaleDateString()} at {new Date(profileData.lastUpdated).toLocaleTimeString()}
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <p className="text-muted-foreground italic">
+                                The story has not been written yet. An admin can add it.
+                            </p>
+                        )
                     )}
                 </div>
             </CardContent>

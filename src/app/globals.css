@@ -1,4 +1,4 @@
-
+/* @import "tailwindcss"; */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -70,4 +70,160 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Markdown styling */
+.markdown-content {
+  @apply max-w-none;
+}
+
+.markdown-content h1 {
+  @apply text-3xl font-bold mt-6 mb-4 text-primary;
+}
+
+.markdown-content h2 {
+  @apply text-2xl font-semibold mt-5 mb-3 text-primary/90;
+}
+
+.markdown-content h3 {
+  @apply text-xl font-medium mt-4 mb-2 text-primary/80;
+}
+
+.markdown-content p {
+  @apply my-3 leading-relaxed;
+}
+
+.markdown-content ul {
+  @apply list-disc pl-6 my-3;
+}
+
+.markdown-content ol {
+  @apply list-decimal pl-6 my-3;
+}
+
+.markdown-content blockquote {
+  @apply border-l-4 border-primary/30 pl-4 italic my-4;
+}
+
+.markdown-content pre {
+  @apply bg-slate-100 dark:bg-slate-800 p-4 rounded-md overflow-x-auto my-4;
+}
+
+.markdown-content code {
+  @apply font-mono text-sm bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded;
+}
+
+.markdown-content a {
+  @apply text-primary underline hover:text-primary/80;
+}
+
+.markdown-content table {
+  @apply border-collapse border border-border my-4 w-full;
+}
+
+.markdown-content th, .markdown-content td {
+  @apply border border-border p-2;
+}
+
+.markdown-content img {
+  @apply max-w-full h-auto rounded-md my-4;
+}
+
+/* Chat styling */
+.chat-bubble-appear {
+  animation: bubble-in 0.3s ease-out forwards;
+  transform-origin: bottom;
+  opacity: 0;
+  transform: translateY(10px) scale(0.95);
+}
+
+@keyframes bubble-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.typing-indicator span {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background-color: currentColor;
+  border-radius: 50%;
+  margin-right: 3px;
+  animation: bounce 1.2s infinite;
+}
+
+.typing-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+  margin-right: 0;
+}
+
+@keyframes bounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-4px);
+  }
+}
+
+/* Message hover animations */
+.message-actions {
+  transition: opacity 0.2s ease-in-out;
+}
+
+.message-group:hover .message-actions {
+  opacity: 1;
+}
+
+/* Chat image lightbox effect */
+.chat-image {
+  cursor: zoom-in;
+  transition: transform 0.2s ease-in-out;
+}
+
+.chat-image:hover {
+  transform: scale(1.02);
+}
+
+/* Highlighted message from search */
+@keyframes highlight-pulse {
+  0% {
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.5);
+  }
+  100% {
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+  }
+}
+
+.highlight-message {
+  animation: highlight-pulse 1s ease-in-out 3;
+  z-index: 10;
+  position: relative;
+}
+
+/* Conversation list hover effects */
+.conversation-item {
+  transition: all 0.15s ease;
+}
+
+.conversation-item:hover {
+  background-color: rgba(var(--primary), 0.05);
+}
+
+.conversation-item.active {
+  border-left: 3px solid hsl(var(--primary));
+  background-color: rgba(var(--primary), 0.08);
 }

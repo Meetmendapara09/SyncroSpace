@@ -176,41 +176,42 @@ class MapScene extends Phaser.Scene {
       }
     }
     
-    // Update other players' positions and labels
+    // Update other players' positions with interpolation
     this.updateOtherPlayers();
   }
   
-  // Add a new player to the map
-  addOtherPlayer(id: string, x: number, y: number, photoURL?: string): void {
-    try {
-      // Create avatar sprite for the other player
-      const sprite = this.add.sprite(x, y, 'avatar');
-      sprite.setDisplaySize(GRID_SIZE, GRID_SIZE);
-      
-      // Generate a consistent color for this player based on their ID
-      const colorIndex = Math.abs(id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)) % AVATAR_COLORS.length;
-      sprite.setTint(AVATAR_COLORS[colorIndex]);
-      
-      // Add name label above avatar
-      const displayName = id.substring(0, 6) + (id.length > 6 ? '...' : '');
-      const label = this.add.text(x, y - GRID_SIZE / 1.5, displayName, {
-        fontSize: '12px',
-        color: '#FFFFFF',
-        backgroundColor: '#00000080',
-        padding: { x: 4, y: 2 },
-      }).setOrigin(0.5);
-      
-      // Add to our tracking map
-      this.otherPlayers.set(id, {
-        sprite,
-        label,
-        target: { x, y },
-      });
-      
-      console.log(`Added player ${id} at (${x}, ${y})`);
-    } catch (error) {
-      console.error('Error adding other player:', error);
-    }
+  // Add a new player to the scene
+  addOtherPlayer(id: string, x: number, y: number, name?: string, photoURL?: string): void {
+    // Don't add duplicates
+    if (this.otherPlayers.has(id)) return;
+    
+    // Create a colored sprite for the player
+    const sprite = this.add.sprite(x, y, 'avatar');
+    sprite.setDisplaySize(GRID_SIZE, GRID_SIZE);
+    
+    // Set a color tint based on the player ID for visual distinction
+    const colorIndex = Math.abs(id.split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % AVATAR_COLORS.length;
+    sprite.setTint(AVATAR_COLORS[colorIndex]);
+    
+    // Add a text label with the user's name
+    const displayName = name || `User ${id.substring(0, 4)}`;
+    const textStyle = { 
+      font: '12px Arial', 
+      fill: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 3,
+      align: 'center'
+    };
+    
+    const label = this.add.text(x, y - GRID_SIZE / 1.5, displayName, textStyle);
+    label.setOrigin(0.5);
+    
+    // Store reference with target position for smooth movement
+    this.otherPlayers.set(id, {
+      sprite,
+      label,
+      target: { x, y }
+    });
   }
   
   // Update other player position
@@ -230,19 +231,16 @@ class MapScene extends Phaser.Scene {
       entry.sprite.destroy();
       entry.label.destroy();
       this.otherPlayers.delete(id);
-      console.log(`Removed player ${id}`);
     }
   }
-
+  
   // Interpolate other players' positions and update labels
   updateOtherPlayers(): void {
     this.otherPlayers.forEach(({ sprite, label, target }) => {
       // Interpolate position for smooth movement
       const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-      
-      // Apply interpolation with a smooth factor
-      sprite.x = lerp(sprite.x, target.x, 0.1);
-      sprite.y = lerp(sprite.y, target.y, 0.1);
+      sprite.x = lerp(sprite.x, target.x, 0.2);
+      sprite.y = lerp(sprite.y, target.y, 0.2);
       
       // Update label position to follow the sprite
       label.x = sprite.x;
@@ -255,6 +253,7 @@ interface MapViewProps {
   onPositionChange?: (x: number, y: number) => void;
   participants?: Array<{
     uid: string;
+    name?: string;
     x?: number;
     y?: number;
     photoURL?: string;
@@ -267,32 +266,26 @@ interface MapViewProps {
 const MapView: React.FC<MapViewProps> = ({ 
   onPositionChange, 
   participants = [], 
-  userId = '',
-  width = '100%',
-  height = '100%'
+  userId = 'me',
+  width = '100%', 
+  height = '100vh' 
 }) => {
-  // References
+  const { toast } = useToast();
   const phaserRef = useRef<HTMLDivElement>(null);
   const gameInstanceRef = useRef<Phaser.Game | null>(null);
   const sceneRef = useRef<MapScene | null>(null);
   
-  // State
+  // State for loading and errors
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [missingAssets, setMissingAssets] = useState<string[]>([]);
-  
-  // Hooks
-  const { toast } = useToast();
-  
-  // Handle errors from the scene
+
   const handleSceneError = useCallback((message: string) => {
     setError(message);
-    
     // Check if error is about missing assets
     if (message.includes('Failed to load asset:')) {
       const assetName = message.replace('Failed to load asset:', '').trim();
       setMissingAssets(prev => [...prev, assetName]);
-      
       // Only show toast for the first few missing assets to avoid spamming
       if (missingAssets.length < 3) {
         toast({
@@ -304,7 +297,7 @@ const MapView: React.FC<MapViewProps> = ({
         toast({
           title: "Multiple Assets Missing",
           description: "Several map assets could not be loaded. The map may not display correctly.",
-          variant: "destructive"
+          variant: "destructive",
         });
       }
     } else {
@@ -312,7 +305,7 @@ const MapView: React.FC<MapViewProps> = ({
       toast({
         title: "Map Error",
         description: message,
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   }, [toast, missingAssets]);
@@ -387,13 +380,19 @@ const MapView: React.FC<MapViewProps> = ({
       if (participant.uid !== userId) {
         if (typeof participant.x === 'number' && typeof participant.y === 'number') {
           // Check if player already exists
-          const exists = sceneRef.current?.otherPlayers.has(participant.uid) ?? false;
+          const exists = sceneRef.current?.otherPlayers.has(participant.uid);
           if (exists) {
             // Update position
             sceneRef.current?.updateOtherPlayer(participant.uid, participant.x, participant.y);
           } else {
             // Add new player
-            sceneRef.current?.addOtherPlayer(participant.uid, participant.x, participant.y, participant.photoURL);
+            sceneRef.current?.addOtherPlayer(
+              participant.uid, 
+              participant.x, 
+              participant.y, 
+              participant.name,
+              participant.photoURL
+            );
           }
         }
       }
@@ -401,7 +400,7 @@ const MapView: React.FC<MapViewProps> = ({
     
     // Clean up any players that left
     const participantIds = new Set(participants.map(p => p.uid));
-    sceneRef.current.otherPlayers.forEach((_, id) => {
+    sceneRef.current?.otherPlayers.forEach((_, id) => {
       if (!participantIds.has(id)) {
         sceneRef.current?.removeOtherPlayer(id);
       }
