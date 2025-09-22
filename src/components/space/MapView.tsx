@@ -1,37 +1,14 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import mapData from '@/../map.json';
+import { TILESET_IMAGES, preloadMapAssets } from './map-assets';
 
-// Define available tilesets based on the files in the public directory
-const TILESET_IMAGES = [
-  { name: 'grass', path: '/grass.png' },
-  { name: 'floor', path: '/floor.png' },
-  { name: 'sofa', path: '/sofa.png' },
-  { name: 'sofa1', path: '/sofa1.png' },
-  { name: 'singlesofa', path: '/singlesofa.png' },
-  { name: 'mac', path: '/mac.png' },
-  { name: 'computer', path: '/computer.png' },
-  { name: 'table', path: '/table.png' },
-  { name: 'book', path: '/book.png' },
-  { name: 'book1', path: '/book1.png' },
-  { name: 'book2', path: '/book2.png' },
-  { name: 'bottle', path: '/bottle.png' },
-  { name: 'bottle1', path: '/bottle1.png' },
-  { name: 'cup', path: '/cup.png' },
-  { name: 'glass', path: '/glass.png' },
-  { name: 'tea', path: '/tea.png' },
-  { name: 'wall', path: '/wall.png' },
-  { name: 'office chair', path: '/office chair.png' },
-  { name: 'garden chair', path: '/garden chair.png' },
-  { name: 'garden table', path: '/garden table.png' },
-  { name: 'paper', path: '/paper.png' },
-  { name: 'tyer', path: '/tyer.png' },
-];
+// Use default avatar
 
 // Use default avatar
 const AVATAR_IMG = '/mac.png';
@@ -62,13 +39,23 @@ class MapScene extends Phaser.Scene {
       // Load the map JSON directly from the imported data
       this.cache.json.add('map', mapData);
       
-      // Load all tileset images
-      TILESET_IMAGES.forEach(img => {
-        this.load.image(img.name, img.path);
+      // Set up error handler for critical errors
+      this.load.on('loaderror', (fileObj: any) => {
+        console.error(`Failed to load asset: ${fileObj.key}`, fileObj);
+        
+        // Only report critical errors (not tileset images which have fallbacks)
+        if (fileObj.key === 'avatar') {
+          this.onError?.(`Failed to load avatar image`);
+        }
       });
+      
+      // Use our enhanced asset preloader with fallback support
+      preloadMapAssets(this);
       
       // Load avatar image
       this.load.image('avatar', AVATAR_IMG);
+      
+      console.log('Started loading all assets');
     } catch (error) {
       console.error('Error in preload:', error);
       this.onError?.('Failed to load map resources');
@@ -82,29 +69,42 @@ class MapScene extends Phaser.Scene {
       
       // Find all unique tilesets used in the map
       const tilesets: Phaser.Tilemaps.Tileset[] = [];
+      const failedTilesets: string[] = [];
       
       // Create tilesets for all available images
       TILESET_IMAGES.forEach(img => {
         try {
-          const tileset = map.addTilesetImage(img.name, img.name);
-          if (tileset) tilesets.push(tileset);
+          // Check if the texture exists before adding it as a tileset
+          if (this.textures.exists(img.name)) {
+            const tileset = map.addTilesetImage(img.name, img.name);
+            if (tileset) tilesets.push(tileset);
+          } else {
+            failedTilesets.push(img.name);
+            console.warn(`Texture for tileset ${img.name} not found`);
+          }
         } catch (err) {
+          failedTilesets.push(img.name);
           console.warn(`Failed to add tileset ${img.name}:`, err);
         }
       });
       
+      // Log summary of missing tilesets
+      if (failedTilesets.length > 0) {
+        console.warn(`Failed to add ${failedTilesets.length} tilesets:`, failedTilesets);
+      }
+      
       // Create all layers from the map
       for (let i = 0; i < map.layers.length; i++) {
         const layerData = map.layers[i];
-        if (layerData.type === 'tilelayer') {
-          const layer = map.createLayer(i, tilesets, 0, 0);
-          
-          // Use the 8th tile layer as collision layer by default
-          // This would need to be adjusted based on the actual map structure
-          if (i === 7) {
-            layer.setCollisionByProperty({ collides: true });
-            this.collisionLayer = layer;
-          }
+        
+        // Check if this is a tile layer (with a type check for TypeScript)
+        const layer = map.createLayer(i, tilesets, 0, 0);
+        
+        // Use the 8th tile layer as collision layer by default
+        // This would need to be adjusted based on the actual map structure
+        if (layer && i === 7) {
+          layer.setCollisionByProperty({ collides: true });
+          this.collisionLayer = layer;
         }
       }
       
@@ -234,17 +234,41 @@ const MapView: React.FC<MapViewProps> = ({
   const sceneRef = useRef<MapScene | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [missingAssets, setMissingAssets] = useState<string[]>([]);
   const { toast } = useToast();
   
   // Handler for scene errors
   const handleSceneError = useCallback((message: string) => {
     setError(message);
-    toast({
-      title: "Map Error",
-      description: message,
-      variant: "destructive"
-    });
-  }, [toast]);
+    
+    // Check if error is about missing assets
+    if (message.includes('Failed to load asset:')) {
+      const assetName = message.replace('Failed to load asset:', '').trim();
+      setMissingAssets(prev => [...prev, assetName]);
+      
+      // Only show toast for the first few missing assets to avoid spamming
+      if (missingAssets.length < 3) {
+        toast({
+          title: "Asset Loading Error",
+          description: `Could not load map asset: ${assetName}. The map may not display correctly.`,
+          variant: "destructive"
+        });
+      } else if (missingAssets.length === 3) {
+        toast({
+          title: "Multiple Assets Missing",
+          description: "Several map assets could not be loaded. The map may not display correctly.",
+          variant: "destructive"
+        });
+      }
+    } else {
+      // For other errors, show the toast
+      toast({
+        title: "Map Error",
+        description: message,
+        variant: "destructive"
+      });
+    }
+  }, [toast, missingAssets]);
 
   // Initialize Phaser
   useEffect(() => {
@@ -270,7 +294,7 @@ const MapView: React.FC<MapViewProps> = ({
         physics: {
           default: 'arcade',
           arcade: { 
-            gravity: { y: 0 },
+            gravity: { x: 0, y: 0 },
             debug: false 
           },
         },
@@ -314,13 +338,13 @@ const MapView: React.FC<MapViewProps> = ({
     participants.forEach(participant => {
       // Skip the current user
       if (participant.uid !== userId) {
-        if (typeof participant.x === 'number' && typeof participant.y === 'number') {
+        if (typeof participant.x === 'number' && typeof participant.y === 'number' && sceneRef.current) {
           // Check if player already exists
           const exists = sceneRef.current.otherPlayers.has(participant.uid);
-          if (exists) {
+          if (exists && sceneRef.current) {
             // Update position
             sceneRef.current.updateOtherPlayer(participant.uid, participant.x, participant.y);
-          } else {
+          } else if (sceneRef.current) {
             // Add new player
             sceneRef.current.addOtherPlayer(participant.uid, participant.x, participant.y, participant.photoURL);
           }
@@ -330,11 +354,13 @@ const MapView: React.FC<MapViewProps> = ({
     
     // Clean up any players that left
     const participantIds = new Set(participants.map(p => p.uid));
-    sceneRef.current.otherPlayers.forEach((_, id) => {
-      if (!participantIds.has(id)) {
-        sceneRef.current.removeOtherPlayer(id);
-      }
-    });
+    if (sceneRef.current) {
+      sceneRef.current.otherPlayers.forEach((_, id) => {
+        if (!participantIds.has(id) && sceneRef.current) {
+          sceneRef.current.removeOtherPlayer(id);
+        }
+      });
+    }
   }, [participants, userId]);
 
   return (
@@ -346,10 +372,36 @@ const MapView: React.FC<MapViewProps> = ({
         </div>
       )}
       
-      {error && (
+      {error && !error.includes('Failed to load asset:') && (
         <Alert variant="destructive" className="absolute top-4 left-4 right-4 z-20">
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertTitle>Map Error</AlertTitle>
+          <AlertDescription>
+            {error}
+            <div className="mt-2 text-xs opacity-80">
+              Try refreshing the page. If the error persists, please contact support.
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {missingAssets.length > 0 && (
+        <Alert className="absolute bottom-4 left-4 right-4 z-20 bg-amber-50 border-amber-300">
+          <AlertTitle>Some map assets could not be loaded</AlertTitle>
+          <AlertDescription>
+            <div className="text-sm">The map may not display correctly due to missing assets.</div>
+            {missingAssets.length <= 5 && (
+              <ul className="mt-2 text-xs list-disc list-inside">
+                {missingAssets.map((asset, i) => (
+                  <li key={i}>{asset}</li>
+                ))}
+              </ul>
+            )}
+            {missingAssets.length > 5 && (
+              <div className="mt-2 text-xs">
+                {missingAssets.length} assets could not be loaded.
+              </div>
+            )}
+          </AlertDescription>
         </Alert>
       )}
       
