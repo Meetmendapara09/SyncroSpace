@@ -81,6 +81,7 @@ export function ForgotPasswordForm() {
               <FormControl>
                 <Input
                   placeholder="name@example.com"
+                  autoComplete="username"
                   {...field}
                   disabled={isLoading}
                 />

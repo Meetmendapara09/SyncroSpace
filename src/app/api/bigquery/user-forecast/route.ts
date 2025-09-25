@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { BigQueryAI } from '@/lib/bigquery';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
+// Required for static export
+export const dynamic = 'force-static';
+export const revalidate = false;
+
 
 // API endpoint for user engagement forecasting
 export async function GET(request: NextRequest) {
@@ -70,12 +74,12 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    const result = await BigQueryAI.forecastUserEngagement(userId, [historicalData], horizon);
+    const result = await BigQueryAI.forecastUserEngagement(userId, [historicalData]);
     
     if (result.success) {
       return NextResponse.json({
         success: true,
-        forecast: result.data[0]?.engagement_forecast || 'User engagement forecast generated successfully',
+        forecast: result.forecast || 'User engagement forecast generated successfully',
         historicalData,
         horizon,
         generatedAt: new Date().toISOString()

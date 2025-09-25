@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+// Required for static export
+export const dynamic = 'force-static';
+export const revalidate = false;
+
 
 type Meeting = {
   id: string;
@@ -9,7 +13,7 @@ type Meeting = {
   agenda?: any[];
   title?: string;
 };
-import { BigQueryAI } from '@/lib/bigquery';
+import { BigQueryAI, getBigQuery } from '@/lib/bigquery';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 
@@ -60,7 +64,7 @@ export async function GET(request: NextRequest) {
     
   for (const meeting of Array.isArray(meetingData) ? (meetingData as Meeting[]) : [meetingData as Meeting]) {
       // Score meeting effectiveness
-      const effectivenessResult = await BigQueryAI.scoreMeetingEffectiveness({
+      const effectivenessResult = await BigQueryAI.analyzeMeetingEffectiveness({
         duration_minutes: meeting.durationMinutes || 30,
         participant_count: meeting.attendees?.length || 0,
         action_items_count: meeting.actionItems?.length || 0,
@@ -79,7 +83,7 @@ export async function GET(request: NextRequest) {
         meetingId: meeting.id,
         title: meeting.title,
         effectivenessScore: effectivenessResult.success ? 
-          effectivenessResult.data[0]?.effectiveness_score : 5,
+          effectivenessResult.effectiveness?.score || 5 : 5,
         categorization: categorizationResult.success ? {
           isBrainstorming: categorizationResult.data[0]?.is_brainstorming || false,
           isStatusUpdate: categorizationResult.data[0]?.is_status_update || false,
@@ -133,7 +137,7 @@ export async function POST(request: NextRequest) {
       
       switch (analysisType) {
         case 'effectiveness':
-          analysisResult = await BigQueryAI.scoreMeetingEffectiveness({
+          analysisResult = await BigQueryAI.analyzeMeetingEffectiveness({
             duration_minutes: meeting.durationMinutes || 30,
             participant_count: meeting.attendees?.length || 0,
             action_items_count: meeting.actionItems?.length || 0,
@@ -152,7 +156,7 @@ export async function POST(request: NextRequest) {
           
         default: // comprehensive
           const [effectivenessResult, categorizationResult] = await Promise.all([
-            BigQueryAI.scoreMeetingEffectiveness({
+            BigQueryAI.analyzeMeetingEffectiveness({
               duration_minutes: meeting.durationMinutes || 30,
               participant_count: meeting.attendees?.length || 0,
               action_items_count: meeting.actionItems?.length || 0,
@@ -168,8 +172,12 @@ export async function POST(request: NextRequest) {
           
           analysisResult = {
             success: effectivenessResult.success && categorizationResult.success,
-            effectiveness: effectivenessResult.data[0]?.effectiveness_score || 5,
-            categorization: categorizationResult.data[0] || {}
+            data: [{
+              effectiveness_score: effectivenessResult.effectiveness?.score || 5,
+              is_brainstorming: categorizationResult.data?.[0]?.is_brainstorming || false,
+              is_status_update: categorizationResult.data?.[0]?.is_status_update || false,
+              is_decision_making: categorizationResult.data?.[0]?.is_decision_making || false
+            }]
           };
       }
       

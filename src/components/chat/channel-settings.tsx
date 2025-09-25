@@ -23,6 +23,7 @@ interface Channel {
   createdAt: any;
   members?: string[];
   type: 'text' | 'voice' | 'video';
+  categoryId: string;
 }
 
 interface User {

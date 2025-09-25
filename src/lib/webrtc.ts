@@ -14,9 +14,10 @@ const STUN_SERVERS: RTCIceServer[] = [
 // Exported handles for room management
 export interface RoomHandles {
   peerConnections: { [uid: string]: RTCPeerConnection };
-  localStream: MediaStream;
+  localStream: MediaStream | null;
   remoteStreams: { [uid: string]: MediaStream };
   hangUp: () => void;
+  roomId?: string; // Add roomId property to match implementation
 }
 
 // Create a new WebRTC room
@@ -67,7 +68,9 @@ export async function createRoom(spaceId: string, callId: string, localStream: M
     remoteStreams: {},
     hangUp: function () {
       Object.values(handles.peerConnections).forEach(pc => (pc as RTCPeerConnection).close());
-      handles.localStream.getTracks().forEach(track => track.stop());
+      if (handles.localStream) {
+        handles.localStream.getTracks().forEach(track => track.stop());
+      }
     }
   };
   return handles;
@@ -119,7 +122,9 @@ export async function joinRoom(spaceId: string, callId: string, localStream: Med
     remoteStreams: {},
     hangUp: function () {
       Object.values(handles.peerConnections).forEach(pc => (pc as RTCPeerConnection).close());
-      handles.localStream.getTracks().forEach(track => track.stop());
+      if (handles.localStream) {
+        handles.localStream.getTracks().forEach(track => track.stop());
+      }
     }
   };
   return handles;
@@ -133,7 +138,9 @@ export async function startLocalMedia(options: { video: boolean; audio: boolean 
 // Hang up and clean up resources
 export function hangUp(handles: RoomHandles) {
   Object.values(handles.peerConnections).forEach(pc => pc.close());
-  handles.localStream.getTracks().forEach(track => track.stop());
+  if (handles.localStream) {
+    handles.localStream.getTracks().forEach(track => track.stop());
+  }
 }
 
 

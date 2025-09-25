@@ -146,7 +146,7 @@ export function VideoAudioCall({
   const [roomHandles, setRoomHandles] = useState<RoomHandles | null>(null);
   
   const videoContainerRef = useRef<HTMLDivElement>(null);
-  const localVideoRef = useRef<HTMLVideoElement | null>(null) as React.MutableRefObject<HTMLVideoElement | null>;
+  const localVideoRef = useRef<HTMLVideoElement>(null);
   const participantVideosRef = useRef<{ [key: string]: HTMLVideoElement | null }>({});
   const screenShareRef = useRef<HTMLVideoElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -791,15 +791,9 @@ export function VideoAudioCall({
         )}
       >
         <video
-          ref={el => {
-            if (isLocal) {
-              if (localVideoRef && 'current' in localVideoRef) {
-                (localVideoRef as React.MutableRefObject<HTMLVideoElement | null>).current = el;
-              }
-            } else {
-              if (participantVideosRef.current) {
-                participantVideosRef.current[participant.uid] = el;
-              }
+          ref={isLocal ? localVideoRef : (el) => {
+            if (el && participantVideosRef.current) {
+              participantVideosRef.current[participant.uid] = el;
             }
           }}
           autoPlay

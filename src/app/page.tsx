@@ -198,6 +198,7 @@ export default function LandingPage() {
               <li><Link href="/features" className="text-sm text-muted-foreground hover:text-foreground">Features</Link></li>
               <li><Link href="/pricing" className="text-sm text-muted-foreground hover:text-foreground">Pricing</Link></li>
               <li><Link href="/documentation" className="text-sm text-muted-foreground hover:text-foreground">Documentation</Link></li>
+              <li><Link href="/demo/caching" className="text-sm text-blue-500 hover:text-blue-600 font-medium">Caching Demo</Link></li>
               <li><Link href="/faq" className="text-sm text-muted-foreground hover:text-foreground">FAQ</Link></li>
             </ul>
           </div>

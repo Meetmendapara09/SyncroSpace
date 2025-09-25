@@ -304,14 +304,14 @@ export function CalendarMeetingSystem({ teamId, spaceId, channelId }: CalendarMe
           uid: user.uid,
           name: user.displayName || user.email?.split('@')[0] || 'User',
           email: user.email!,
-          avatar: user.photoURL
+          avatar: user.photoURL || undefined
         },
         attendees: [
           {
             uid: user.uid,
             name: user.displayName || user.email?.split('@')[0] || 'User',
             email: user.email!,
-            avatar: user.photoURL,
+            avatar: user.photoURL || undefined,
             status: 'accepted',
             role: 'organizer'
           },

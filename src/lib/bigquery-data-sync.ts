@@ -1,5 +1,5 @@
 import { db } from '@/lib/firebase';
-import { DataSync } from '@/lib/bigquery';
+import { DataSync } from '@/lib/bigquery/DataSync';
 import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 
 // Data synchronization service to keep BigQuery updated with Firebase data
@@ -79,7 +79,7 @@ export class BigQueryDataSyncService {
       }));
 
       if (userData.length > 0) {
-        await DataSync.exportUserAnalytics(userData);
+        await DataSync.syncAllUserData(userData);
         console.log(`Synced ${userData.length} users to BigQuery`);
       }
     } catch (error) {
@@ -104,7 +104,9 @@ export class BigQueryDataSyncService {
       }));
 
       if (meetingData.length > 0) {
-        await DataSync.exportMeetingAnalytics(meetingData);
+        for (const meeting of meetingData) {
+          await DataSync.syncMeetingData(meeting.id, meeting);
+        }
         console.log(`Synced ${meetingData.length} meetings to BigQuery`);
       }
     } catch (error) {
@@ -128,7 +130,9 @@ export class BigQueryDataSyncService {
       }));
 
       if (spaceData.length > 0) {
-        await DataSync.exportSpaceAnalytics(spaceData);
+        for (const space of spaceData) {
+          await DataSync.syncSpaceAnalytics(space.id, space);
+        }
         console.log(`Synced ${spaceData.length} spaces to BigQuery`);
       }
     } catch (error) {

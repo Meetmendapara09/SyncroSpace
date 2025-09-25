@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { OptimizedImage } from '@/components/ui/optimized-image';
 import { 
   Send, 
   ThumbsUp, 
@@ -815,11 +816,13 @@ export function ChatPanel({ participants, spaceName, spaceId, canRead = true }: 
                                                             {/* Message content based on type */}
                                                             {msg.type === 'image' ? (
                                                                 <div className="relative">
-                                                                    <img
+                                                                    <OptimizedImage
                                                                         src={msg.message}
                                                                         alt={msg.fileName || 'image'}
                                                                         className="max-w-xs max-h-60 rounded"
-                                                                        loading="lazy"
+                                                                        width={320}
+                                                                        height={240}
+                                                                        sizes="320px"
                                                                     />
                                                                     {msg.fileName && (
                                                                         <div className="mt-1 text-xs opacity-70 flex items-center gap-1">
@@ -1090,10 +1093,12 @@ export function ChatPanel({ participants, spaceName, spaceId, canRead = true }: 
                     <div className="flex items-center gap-2 bg-muted/50 rounded-lg p-2 pr-3">
                         {file.type.startsWith('image/') ? (
                             <div className="h-12 w-12 relative rounded overflow-hidden border bg-muted/30">
-                                <img 
+                                <OptimizedImage 
                                     src={URL.createObjectURL(file)} 
                                     alt="Preview"
-                                    className="h-full w-full object-cover"
+                                    className="h-full w-full"
+                                    fill
+                                    objectFit="cover"
                                 />
                             </div>
                         ) : (

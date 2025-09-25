@@ -9,6 +9,14 @@ const minimalConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  webpack: (config, { isServer }) => {
+    // Handle the handlebars require.extensions issue
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      handlebars: 'handlebars/dist/handlebars.min.js',
+    };
+    return config;
+  },
   productionBrowserSourceMaps: false,
   images: {
     unoptimized: true, // Skip image optimization

@@ -3,7 +3,12 @@
 /**
  * BigQuery Test Script
  * 
- * This script tests the BigQuery AI integration by running
+ * This script tests the BigQuery AI integra    if (result.success) {
+      console.log('✅ User engagement forecast generated successfully');
+      console.log('Forecast:', result.forecast || 'Generated forecast');
+    } else {
+      console.log('❌ Failed to generate user engagement forecast');
+    }y running
  * various AI functions and displaying the results.
  */
 
@@ -28,7 +33,7 @@ async function testPersonalizedContent() {
     
     if (result.success) {
       console.log('✅ Personalized content generated successfully');
-      console.log('Content:', result.data[0]?.generated_content || 'Generated content');
+      console.log('Content:', result.content || 'Generated content');
     } else {
       console.log('❌ Failed to generate personalized content');
     }
@@ -92,15 +97,11 @@ async function testUserForecast() {
       activityPattern: 'moderately_active'
     };
 
-    const result = await BigQueryAI.forecastUserEngagement(
-      'test_user_123',
-      [historicalData],
-      30
-    );
+    const result = await BigQueryAI.forecastUserEngagement('test_user_123', [historicalData]);
     
     if (result.success) {
       console.log('✅ User engagement forecast generated successfully');
-      console.log('Forecast:', result.data[0]?.engagement_forecast || 'Generated forecast');
+      console.log('Forecast:', result.forecast || 'Generated forecast');
     } else {
       console.log('❌ Failed to generate user forecast');
     }
@@ -114,7 +115,7 @@ async function testMeetingAnalytics() {
   
   try {
     // Test meeting effectiveness scoring
-    const effectivenessResult = await BigQueryAI.scoreMeetingEffectiveness({
+    const effectivenessResult = await BigQueryAI.analyzeMeetingEffectiveness({
       duration_minutes: 45,
       participant_count: 6,
       action_items_count: 4,
@@ -122,10 +123,10 @@ async function testMeetingAnalytics() {
     });
     
     if (effectivenessResult.success) {
-      console.log('✅ Meeting effectiveness scored successfully');
-      console.log('Score:', effectivenessResult.data[0]?.effectiveness_score || 'Generated score');
+      console.log('✅ Meeting effectiveness analyzed successfully');
+      console.log('Score:', effectivenessResult.effectiveness.score || 'Generated score');
     } else {
-      console.log('❌ Failed to score meeting effectiveness');
+      console.log('❌ Failed to analyze meeting effectiveness');
     }
 
     // Test meeting categorization
@@ -162,7 +163,7 @@ async function testSpaceRecommendations() {
     
     if (result.success) {
       console.log('✅ Space recommendations generated successfully');
-      console.log('Recommendations:', result.data[0]?.space_recommendations || 'Generated recommendations');
+      console.log('Recommendations:', result.recommendations || 'Generated recommendations');
     } else {
       console.log('❌ Failed to generate space recommendations');
     }

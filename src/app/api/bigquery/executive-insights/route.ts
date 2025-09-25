@@ -3,6 +3,10 @@ import { BigQueryAI } from '@/lib/bigquery';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 
+// Required for static export
+export const dynamic = 'force-static';
+export const revalidate = false;
+
 // API endpoint for executive insights dashboard
 export async function GET(request: NextRequest) {
   try {
@@ -110,12 +114,14 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    const result = await BigQueryAI.generateExecutiveInsights([analyticsData]);
+    const result = await BigQueryAI.exportSpaceAnalytics([analyticsData]);
     
     if (result.success) {
       return NextResponse.json({
         success: true,
-        insights: result.data[0]?.executive_summary || 'Executive insights generated successfully',
+        insights: result.success && Array.isArray(result.message) && result.message[0]?.executive_summary 
+          ? result.message[0].executive_summary 
+          : 'Executive insights generated successfully',
         analytics: analyticsData,
         generatedAt: new Date().toISOString()
       });

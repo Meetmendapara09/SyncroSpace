@@ -33,7 +33,13 @@ interface Participant {
   hiddenMeetings?: string[];
 }
 
-const isPositionValid = (pos: { x: number; y: number }) => {
+// Export Position type for use in other files
+export interface Position {
+    x: number;
+    y: number;
+}
+
+const isPositionValid = (pos: Position) => {
     // Center of the avatar
     const avatarCenterX = pos.x + GRID_SIZE / 2;
     const avatarCenterY = pos.y + GRID_SIZE / 2;

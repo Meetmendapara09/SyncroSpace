@@ -178,6 +178,7 @@ export function LoginForm() {
                 <FormControl>
                   <Input
                     placeholder="name@example.com"
+                    autoComplete="username"
                     {...field}
                     disabled={isLoading || !!isSocialLoading}
                   />

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { bigQueryDataSync } from '@/lib/bigquery-data-sync';
 
+// Required for static export
+export const dynamic = 'force-static';
+export const revalidate = false;
+
 // API endpoint to manage BigQuery data synchronization
 export async function GET(request: NextRequest) {
   try {
@@ -95,8 +99,8 @@ export async function POST(request: NextRequest) {
         }
         
         // Handle custom data sync
-        const { DataSync } = await import('@/lib/bigquery');
-        await DataSync.exportUserAnalytics(data);
+        const { DataSync } = await import('@/lib/bigquery/DataSync');
+        await DataSync.syncAllUserData(data);
         
         return NextResponse.json({
           success: true,

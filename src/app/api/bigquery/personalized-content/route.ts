@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { BigQueryAI, DataSync } from '@/lib/bigquery';
+import { BigQueryAI } from '@/lib/bigquery';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
+// Required for static export
+export const dynamic = 'force-static';
+export const revalidate = false;
+
 
 // API endpoint for generating personalized marketing content
 export async function POST(request: NextRequest) {
@@ -75,7 +79,7 @@ export async function POST(request: NextRequest) {
     if (result.success) {
       return NextResponse.json({
         success: true,
-        content: result.data[0]?.generated_content || 'Generated content',
+        content: result.content || 'Generated content',
         contentType
       });
     } else {

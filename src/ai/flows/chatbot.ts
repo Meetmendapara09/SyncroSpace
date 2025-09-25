@@ -1,84 +1,40 @@
+// Static dummy implementation of chatbot
+import { z } from 'zod';
 
-'use server';
-/**
- * @fileOverview A simple chatbot flow.
- *
- * - chat - A function that handles a chatbot conversation.
- * - ChatInput - The input type for the chat function.
- * - ChatOutput - The return type for the chat function.
- */
-
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
-
-const ChatInputSchema = z.object({
-  history: z.array(z.object({
-    role: z.enum(['user', 'model']),
-    content: z.string(),
-  })),
-  message: z.string(),
-  role: z.string().optional().describe("The user's role (e.g., 'admin' or 'employee')"),
+// Define types to match original API
+export const ChatMessageSchema = z.object({
+  role: z.enum(['user', 'assistant']),
+  content: z.string(),
+  timestamp: z.number().optional(),
 });
-export type ChatInput = z.infer<typeof ChatInputSchema>;
 
-const ChatOutputSchema = z.object({
-  message: z.string().min(1, "Message cannot be empty"),
+export type ChatMessage = z.infer<typeof ChatMessageSchema>;
+
+export const ChatCompletionInputSchema = z.object({
+  messages: z.array(ChatMessageSchema),
 });
-export type ChatOutput = z.infer<typeof ChatOutputSchema>;
+export type ChatCompletionInput = z.infer<typeof ChatCompletionInputSchema>;
 
-export async function chat(input: ChatInput): Promise<ChatOutput> {
-  // Validate input to prevent null messages
-  if (!input.message || input.message.trim() === '') {
-    return { message: "I'm here to help! Please ask me a question about SyncroSpace." };
-  }
+export const ChatCompletionOutputSchema = z.object({
+  message: ChatMessageSchema,
+});
+export type ChatCompletionOutput = z.infer<typeof ChatCompletionOutputSchema>;
+
+// Export chat function to match original API
+export const chat = chatCompletion;
+
+// Static implementation
+export async function chatCompletion(
+  input: ChatCompletionInput
+): Promise<ChatCompletionOutput> {
+  console.log('Using static dummy implementation of chatCompletion');
   
-  try {
-    return await chatFlow(input);
-  } catch (error: any) {
-    console.error('Error in chat flow:', error);
-    throw new Error(`Failed to generate response: ${error.message || 'Unknown AI error'}`);
-  }
+  // Return a dummy response
+  return {
+    message: {
+      role: 'assistant',
+      content: 'This is a static response. AI features are not available in static export mode.',
+      timestamp: Date.now(),
+    },
+  };
 }
-
-const chatFlow = ai.defineFlow(
-  {
-    name: 'chatFlow',
-    inputSchema: ChatInputSchema,
-    outputSchema: ChatOutputSchema,
-  },
-  async ({history, message, role}) => {
-    // Build a single prompt including brief context and recent history.
-    const context = `You are a helpful and friendly AI assistant for a company called SyncroSpace.
-Your goal is to answer user questions about the product and encourage them to sign up.
-The user role is: ${role || 'user'}.
-
-Here is some information about SyncroSpace:
-- Product: A virtual collaboration platform for remote teams.
-- Key Features: Customizable virtual spaces, proximity-based video/audio chat, integrated Kanban boards, team calendars with Google Calendar sync, secure channels for external partners (SyncroSpace Connect), AI-powered meeting summaries, and an AI assistant for suggestions.
-- Mission: To make remote work as collaborative and human as a physical office.
-- Pricing: Free tier; Pro $15/user/month; Enterprise custom.
-
-Keep answers concise, positive, and helpful.`;
-
-    const historyText = history
-      .slice(-6) // keep it short
-      .map(h => `${h.role === 'user' ? 'User' : 'Assistant'}: ${h.content}`)
-      .join('\n');
-
-    const prompt = `${context}\n\nConversation so far:\n${historyText}\n\nUser: ${message}\nAssistant:`;
-
-    try {
-      const { output } = await ai.generate(prompt);
-      
-      // Validate output
-      if (!output || output.trim() === '') {
-        throw new Error('Empty response from AI model');
-      }
-      
-      return { message: output };
-    } catch (error: any) {
-      console.error('Error generating chatbot response:', error);
-      throw new Error(`AI response generation failed: ${error.message || 'Unknown error'}`);
-    }
-  }
-);

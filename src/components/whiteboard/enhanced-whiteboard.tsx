@@ -208,7 +208,21 @@ export function EnhancedWhiteboard({ boardId, teamId, spaceId, isReadOnly = fals
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
   const [cursors, setCursors] = useState<WhiteboardCursor[]>([]);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [currentStroke, setCurrentStroke] = useState<any>(null);
+  interface StrokePoint {
+    x: number;
+    y: number;
+  }
+
+  interface Stroke {
+    id: string;
+    type: 'line';
+    points: StrokePoint[];
+    color: string;
+    strokeWidth: number;
+    opacity: number;
+  }
+
+  const [currentStroke, setCurrentStroke] = useState<Stroke | null>(null);
   const [zoom, setZoom] = useState(100);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [showTemplates, setShowTemplates] = useState(false);
@@ -248,8 +262,20 @@ export function EnhancedWhiteboard({ boardId, teamId, spaceId, isReadOnly = fals
     );
     const unsubscribeCursors = onSnapshot(cursorsQuery, (snapshot) => {
       const cursorList = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(cursor => cursor.userId !== user?.uid) as WhiteboardCursor[];
+        .map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            userId: data.userId,
+            userName: data.userName,
+            userAvatar: data.userAvatar,
+            x: data.x,
+            y: data.y,
+            color: data.color,
+            lastUpdate: data.lastUpdate
+          } as WhiteboardCursor;
+        })
+        .filter(cursor => cursor.userId !== user?.uid);
       setCursors(cursorList);
     });
 
@@ -311,10 +337,13 @@ export function EnhancedWhiteboard({ boardId, teamId, spaceId, isReadOnly = fals
     }
 
     if (isDrawing && currentStroke && selectedTool === 'pen') {
-      setCurrentStroke(prev => ({
-        ...prev,
-        points: [...prev.points, { x, y }]
-      }));
+      setCurrentStroke(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          points: [...prev.points, { x, y }]
+        };
+      });
     }
   }, [isDrawing, currentStroke, selectedTool, zoom, panOffset, user, isReadOnly]);
 
@@ -323,10 +352,10 @@ export function EnhancedWhiteboard({ boardId, teamId, spaceId, isReadOnly = fals
       addElement({
         id: currentStroke.id,
         type: 'line',
-        x: Math.min(...currentStroke.points.map(p => p.x)),
-        y: Math.min(...currentStroke.points.map(p => p.y)),
-        width: Math.max(...currentStroke.points.map(p => p.x)) - Math.min(...currentStroke.points.map(p => p.x)),
-        height: Math.max(...currentStroke.points.map(p => p.y)) - Math.min(...currentStroke.points.map(p => p.y)),
+        x: Math.min(...currentStroke.points.map((p: StrokePoint) => p.x)),
+        y: Math.min(...currentStroke.points.map((p: StrokePoint) => p.y)),
+        width: Math.max(...currentStroke.points.map((p: StrokePoint) => p.x)) - Math.min(...currentStroke.points.map((p: StrokePoint) => p.x)),
+        height: Math.max(...currentStroke.points.map((p: StrokePoint) => p.y)) - Math.min(...currentStroke.points.map((p: StrokePoint) => p.y)),
         color: currentStroke.color,
         backgroundColor: 'transparent',
         strokeWidth: currentStroke.strokeWidth,
@@ -539,7 +568,7 @@ export function EnhancedWhiteboard({ boardId, teamId, spaceId, isReadOnly = fals
         id: uuidv4(),
         userId: user.uid,
         userName: user.displayName || user.email?.split('@')[0] || 'User',
-        userAvatar: user.photoURL,
+        userAvatar: user.photoURL || undefined,
         content: content.trim(),
         timestamp: serverTimestamp(),
         resolved: false

@@ -308,7 +308,7 @@ class EncryptionManager {
       iv: Array.from(iv)
         .map(b => b.toString(16).padStart(2, '0'))
         .join(''),
-      keyId: actualKeyId
+      keyId: actualKeyId || 'default' // Provide a fallback for the keyId
     };
   }
 
@@ -417,7 +417,14 @@ class AuditLogger {
       details,
       ipAddress,
       userAgent: navigator.userAgent,
-      location,
+      location: location && {
+        country: location.country,
+        region: location.region,
+        city: location.city,
+        coordinates: Array.isArray(location.coordinates) && location.coordinates.length === 2
+          ? [location.coordinates[0], location.coordinates[1]]
+          : undefined,
+      },
       deviceInfo,
       timestamp: serverTimestamp(),
       resolved: false,
@@ -1163,7 +1170,7 @@ export function SecurityDashboard({ teamId }: SecurityDashboardProps) {
 
               <DatePickerWithRange
                 date={dateRange}
-                setDate={setDateRange}
+                setDate={(date) => setDateRange(date ? { from: date.from || new Date(), to: date.to || new Date() } : undefined)}
               />
             </div>
 

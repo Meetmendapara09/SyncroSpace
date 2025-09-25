@@ -8,6 +8,17 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
       // Only admins or the creator can delete
       allow delete: if isAdmin() || resource.data.createdBy == request.auth.uid;
+      
+      // Call metadata and recordings
+      match /recordings/{recordingId} {
+        allow read: if isSignedIn();
+        allow write: if isAdmin() || resource.data.createdBy == request.auth.uid;
+      }
+      
+      // Call participants can add messages
+      match /messages/{messageId} {
+        allow read, write: if isSignedIn();
+      }
     }
 
     // Allow call-related messages in spaces
@@ -128,6 +139,26 @@ service cloud.firestore {
         allow read, write: if isDevelopment() || (
           isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.members
         );
+      }
+      
+      // WebRTC rooms within spaces
+      match /rooms/{roomId} {
+        allow read, write: if isSignedIn();
+        
+        match /callerCandidates/{candidateId} {
+          allow read, write: if isSignedIn();
+        }
+        
+        match /calleeCandidates/{candidateId} {
+          allow read, write: if isSignedIn();
+        }
+      }
+      
+      // Resources within spaces (files, links, etc.)
+      match /resources/{resourceId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.members;
+        allow delete: if isAdmin() || request.auth.uid == resource.data.createdBy;
       }
     }
     

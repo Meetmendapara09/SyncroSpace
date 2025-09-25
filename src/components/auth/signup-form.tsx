@@ -213,6 +213,7 @@ export function SignupForm() {
                 <FormControl>
                   <Input
                     placeholder="name@example.com"
+                    autoComplete="username"
                     {...field}
                     disabled={isLoading || !!isSocialLoading}
                   />

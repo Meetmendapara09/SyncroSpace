@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useDocument } from 'react-firebase-hooks/firestore';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { OptimizedImage } from '@/components/ui/optimized-image';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -189,10 +190,16 @@ const FilePreview = ({ file, onClose }: { file: FileItem; onClose: () => void })
         {previewUrl ? (
           <>
             {isImage && (
-              <img 
+              <OptimizedImage 
                 src={previewUrl} 
                 alt={file.name} 
-                className="max-h-full max-w-full object-contain"
+                className="max-h-full max-w-full"
+                width={800}
+                height={600}
+                objectFit="contain"
+                priority={true}
+                sizes="(max-width: 768px) 100vw, 800px"
+                quality={90}
               />
             )}
             {isVideo && (
@@ -728,10 +735,13 @@ export function FileManagementSystem({ spaceId }: { spaceId?: string }) {
                       onClick={() => setPreviewFile(file)}
                     >
                       {file.type.startsWith('image/') && file.thumbnailUrl ? (
-                        <img 
+                        <OptimizedImage 
                           src={file.thumbnailUrl} 
                           alt={file.name} 
-                          className="h-full w-full object-cover"
+                          className="h-full w-full"
+                          fill
+                          objectFit="cover"
+                          sizes="192px"
                         />
                       ) : (
                         <div className="text-center">
