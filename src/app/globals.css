@@ -74,7 +74,7 @@ body {
 
 /* Markdown styling */
 .markdown-content {
-  @apply max-w-none;
+  @apply max-w-none prose prose-headings:text-primary prose-headings:font-bold prose-strong:font-bold;
 }
 
 .markdown-content h1 {
@@ -94,7 +94,7 @@ body {
 }
 
 .markdown-content strong, .markdown-content b {
-  @apply font-bold;
+  @apply font-bold text-foreground;
 }
 
 .markdown-content ul {

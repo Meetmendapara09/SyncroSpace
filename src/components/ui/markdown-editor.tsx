@@ -47,10 +47,17 @@ export function MarkdownEditor({
         </TabsContent>
         <TabsContent value="preview" className="p-4">
           {value ? (
-            <div className="prose dark:prose-invert max-w-none">
+            <div className="prose dark:prose-invert prose-headings:text-primary prose-headings:font-bold prose-strong:font-bold max-w-none">
               <ReactMarkdown 
                 remarkPlugins={[remarkGfm]} 
                 rehypePlugins={[rehypeRaw]}
+                components={{
+                  h1: ({node, ...props}) => <h1 className="text-3xl font-bold mt-6 mb-4 text-primary" {...props} />,
+                  h2: ({node, ...props}) => <h2 className="text-2xl font-semibold mt-5 mb-3 text-primary/90" {...props} />,
+                  h3: ({node, ...props}) => <h3 className="text-xl font-medium mt-4 mb-2 text-primary/80" {...props} />,
+                  strong: ({node, ...props}) => <strong className="font-bold" {...props} />,
+                  a: ({node, href, ...props}) => <a href={href} className="text-primary underline hover:text-primary/80" {...props} />,
+                }}
               >
                 {value}
               </ReactMarkdown>
