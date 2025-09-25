@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { auth, rtdb } from '@/lib/firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { ref as rtdbRef, onValue, update, push, set, remove } from 'firebase/database';
-import { toast } from '@/components/ui/use-toast';
+import { ref as rtdbRef, onValue, update, push, set, remove, get } from 'firebase/database';
+import { toast } from '@/hooks/use-toast';
 import { Bell, BellOff, AtSign, Hash, MessageSquare } from 'lucide-react';
 
 interface Notification {
@@ -300,7 +300,7 @@ export function useMentionNotifications(
     
     // Get all users in the space
     const spaceUsersRef = rtdbRef(rtdb, `spaces/${spaceId}/members`);
-    const snapshot = await spaceUsersRef.get();
+    const snapshot = await get(spaceUsersRef);
     const spaceUsers = snapshot.val() || {};
     
     // For each mention, find the user and send notification
@@ -404,7 +404,7 @@ export function useNotificationMiddleware() {
                 // Process replies to user's messages
                 if (msg.replyToId) {
                   const repliedMsgRef = rtdbRef(rtdb, `spaces/${spaceId}/channels/${channelId}/messages/${msg.replyToId}`);
-                  const repliedMsgSnapshot = await repliedMsgRef.get();
+                  const repliedMsgSnapshot = await get(repliedMsgRef);
                   const repliedMsg = repliedMsgSnapshot.val();
                   
                   if (repliedMsg && repliedMsg.uid === user.uid) {
@@ -433,7 +433,7 @@ export function useNotificationMiddleware() {
             if (!participants.includes(user.uid)) continue;
             
             // Get other participant
-            const otherUser = participants.find(uid => uid !== user.uid);
+            const otherUser = participants.find((uid: string) => uid !== user.uid);
             if (!otherUser) continue;
             
             // Watch for new messages
@@ -478,7 +478,7 @@ export function useNotificationMiddleware() {
             
             // Check if thread involves current user (by checking parentMessage)
             const parentMessageRef = rtdbRef(rtdb, `spaces/${spaceId}/messages/${threadId}`);
-            const parentMsgSnapshot = await parentMessageRef.get();
+            const parentMsgSnapshot = await get(parentMessageRef);
             const parentMsg = parentMsgSnapshot.val();
             
             let shouldWatchThread = false;

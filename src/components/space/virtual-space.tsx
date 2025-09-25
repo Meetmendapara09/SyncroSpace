@@ -170,8 +170,12 @@ export function VirtualSpace({ participants: initialParticipants, spaceId }: { p
         handles = await createRoom(spaceId, roomId, localStream);
       }
       roomHandlesRef.current = handles;
-      setRemoteStream(handles.remoteStream);
-      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = handles.remoteStream;
+      // Get first remote stream if available
+      const firstRemoteStream = Object.values(handles.remoteStreams)[0];
+      if (firstRemoteStream) {
+        setRemoteStream(firstRemoteStream);
+        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = firstRemoteStream;
+      }
       setIsInCall(true);
     } catch (e: any) {
       toast({ variant: 'destructive', title: 'Call failed', description: e?.message || 'Unable to start call' });
@@ -337,10 +341,11 @@ export function VirtualSpace({ participants: initialParticipants, spaceId }: { p
 
   const handleToggleCamera = async () => {
     if (!localStream) return;
-    const pc = roomHandlesRef.current?.peerConnection;
+    const peerConnections = roomHandlesRef.current?.peerConnections;
+    const pc = peerConnections ? Object.values(peerConnections)[0] : null;
 
   const currentVideoTracks = localStream.getVideoTracks();
-  const videoSenders = pc?.getSenders().filter(s => s.track && s.track.kind === 'video') || [];
+  const videoSenders = pc?.getSenders().filter((s: RTCRtpSender) => s.track && s.track.kind === 'video') || [];
 
     if (!isCameraOff) {
       // Turn camera OFF: stop and remove video tracks to release hardware
@@ -363,7 +368,7 @@ export function VirtualSpace({ participants: initialParticipants, spaceId }: { p
               try { await sender.replaceTrack(dummyTrack); } catch {}
             }
             // Keep transceivers in sendrecv so the pipeline stays stable
-            pc?.getTransceivers()?.forEach(tx => {
+            pc?.getTransceivers()?.forEach((tx: RTCRtpTransceiver) => {
               const setDir = (tx as any).setDirection?.bind(tx);
               if (tx.receiver?.track?.kind === 'video' || tx.sender?.track?.kind === 'video') {
                 try { setDir ? setDir('sendrecv') : (tx as any).direction = 'sendrecv'; } catch {}
@@ -374,7 +379,7 @@ export function VirtualSpace({ participants: initialParticipants, spaceId }: { p
             for (const sender of videoSenders) {
               try { await sender.replaceTrack(null); } catch {}
             }
-            pc?.getTransceivers()?.forEach(tx => {
+            pc?.getTransceivers()?.forEach((tx: RTCRtpTransceiver) => {
               const setDir = (tx as any).setDirection?.bind(tx);
               if (tx.receiver?.track?.kind === 'video' || tx.sender?.track?.kind === 'video') {
                 try { setDir ? setDir('recvonly') : (tx as any).direction = 'recvonly'; } catch {}
@@ -404,14 +409,14 @@ export function VirtualSpace({ participants: initialParticipants, spaceId }: { p
       if (videoRef.current) videoRef.current.srcObject = localStream;
       // Send to remote peer
       if (pc) {
-        const existingVideoSender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+        const existingVideoSender = pc.getSenders().find((s: RTCRtpSender) => s.track && s.track.kind === 'video');
         if (existingVideoSender) {
           await existingVideoSender.replaceTrack(newVideoTrack);
         } else {
           try { pc.addTrack(newVideoTrack, localStream); } catch {}
         }
         // Ensure transceivers are set to sendrecv
-        pc.getTransceivers()?.forEach(tx => {
+        pc.getTransceivers()?.forEach((tx: RTCRtpTransceiver) => {
           const setDir = (tx as any).setDirection?.bind(tx);
           if (tx.receiver?.track?.kind === 'video' || tx.sender?.track?.kind === 'video') {
             try { setDir ? setDir('sendrecv') : (tx as any).direction = 'sendrecv'; } catch {}

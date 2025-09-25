@@ -29,6 +29,9 @@ import {
   Layers,
   Sparkles,
   User,
+  File,
+  Crown,
+  Shield,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useParams } from 'next/navigation';
@@ -164,7 +167,7 @@ export function AppSidebar() {
   }, [userData]);
 
   const isActive = (path: string) => {
-    return pathname.startsWith(path);
+    return pathname?.startsWith(path) || false;
   };
 
   // Enhanced notification creation for pending space invites
@@ -275,9 +278,11 @@ export function AppSidebar() {
     { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { href: '/notifications', icon: Bell, label: 'Notifications' },
     { href: '/company', icon: Building, label: 'Company' },
+    { href: '/teams', icon: Users, label: 'Teams' },
     { href: '/board', icon: KanbanSquare, label: 'Board' },
     { href: '/whiteboard', icon: PenSquare, label: 'Whiteboard' },
     { href: '/calendar', icon: Calendar, label: 'Calendar' },
+    { href: '/files', icon: File, label: 'Files' },
     { href: '/contacts', icon: Contact, label: 'Contacts' },
     { href: '/connect', icon: Network, label: 'Connect' },
     { href: '/chat', icon: MessageSquare, label: 'Chat' },
@@ -286,6 +291,8 @@ export function AppSidebar() {
   const adminMenuItems = [
     { href: '/analytics', icon: BarChart2, label: 'Analytics' },
     { href: '/users', icon: Users, label: 'Users' },
+    { href: '/admin', icon: Crown, label: 'Admin Dashboard' },
+    { href: '/security', icon: Shield, label: 'Security Center' },
   ];
 
   return (

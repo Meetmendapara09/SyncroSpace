@@ -67,7 +67,8 @@ import {
   Eye,
   ArrowUpDown,
   UploadCloud,
-  X
+  X,
+  Clock
 } from 'lucide-react';
 
 // Types for file management
@@ -483,7 +484,7 @@ export function FileManagementSystem({ spaceId }: { spaceId?: string }) {
         });
         
         // Create file metadata in Firestore
-        const fileData = {
+        const fileData: Omit<FileItem, 'id'> = {
           name: file.name,
           type: file.type,
           size: file.size,
@@ -505,7 +506,7 @@ export function FileManagementSystem({ spaceId }: { spaceId?: string }) {
         
         // Generate thumbnail URL if it's an image
         if (file.type.startsWith('image/')) {
-          fileData.thumbnailUrl = downloadUrl;
+          (fileData as FileItem).thumbnailUrl = downloadUrl;
         }
         
         const docRef = await addDoc(collection(db, 'files'), fileData);
@@ -514,7 +515,7 @@ export function FileManagementSystem({ spaceId }: { spaceId?: string }) {
         setFiles(prev => [{
           id: docRef.id,
           ...fileData,
-        } as unknown as FileItem, ...prev]);
+        }, ...prev]);
       } catch (err) {
         console.error(`Error uploading ${file.name}:`, err);
         
@@ -666,7 +667,6 @@ export function FileManagementSystem({ spaceId }: { spaceId?: string }) {
             <div className="flex items-center gap-2">
               <Checkbox 
                 checked={selectedFiles.length > 0 && selectedFiles.length === filteredFiles.length}
-                indeterminate={selectedFiles.length > 0 && selectedFiles.length < filteredFiles.length}
                 onCheckedChange={selectAllFiles}
               />
               <Label>

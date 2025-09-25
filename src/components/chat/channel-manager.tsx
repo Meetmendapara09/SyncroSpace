@@ -26,7 +26,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { auth, rtdb, firestore } from '@/lib/firebase';
+import { auth, rtdb, db } from '@/lib/firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { ref as rtdbRef, set, push, update, remove, onValue } from 'firebase/database';
 import { doc, setDoc, addDoc, collection, updateDoc } from 'firebase/firestore';
@@ -53,6 +53,7 @@ interface Channel {
     timestamp: any;
     senderName: string;
   };
+  categoryId?: string;
 }
 
 interface ChannelCategory {

@@ -11,7 +11,8 @@ import {
   collection,
   query,
   where,
-  getDocs
+  getDocs,
+  getDoc
 } from 'firebase/firestore';
 import { ref, onValue, set } from 'firebase/database';
 import { auth, db, rtdb } from '@/lib/firebase';
@@ -61,7 +62,8 @@ import {
   Video,
   AtSign,
   AlertCircle,
-  Coffee
+  Coffee,
+  X
 } from 'lucide-react';
 
 // Types for user presence
@@ -822,7 +824,7 @@ export function UsersPresenceList({
                   <BellOff className="h-4 w-4 mr-2" />
                   Mute notifications
                 </DropdownMenuItem>
-                <DropdownMenuItem variant="destructive">
+                <DropdownMenuItem className="text-destructive focus:text-destructive">
                   <UserX className="h-4 w-4 mr-2" />
                   Block
                 </DropdownMenuItem>

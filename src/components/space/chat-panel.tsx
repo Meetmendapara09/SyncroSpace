@@ -189,8 +189,7 @@ export function ChatPanel({ participants, spaceName, spaceId, canRead = true }: 
     const [isTyping, setIsTyping] = useState(false);
     const [showEmoji, setShowEmoji] = useState(false);
     const [activeEmojiMessage, setActiveEmojiMessage] = useState<string | null>(null);
-    const [searchDialogOpen, setSearchDialogOpen] = useState(false);
-    const [scrollToMessageId, setScrollToMessageId] = useState<string | null>(null);
+    // Removed duplicate declaration of scrollToMessageId
     const [threadReplyOpen, setThreadReplyOpen] = useState(false);
     const [activeThreadMessage, setActiveThreadMessage] = useState<string | null>(null);
     const [uploadProgress, setUploadProgress] = useState(0);

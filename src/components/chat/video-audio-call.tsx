@@ -44,6 +44,7 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Mic,
   MicOff,
@@ -67,7 +68,6 @@ import {
   Share2,
   Hand,
   ScreenShare,
-  StopScreenShare,
   LayoutGrid,
   CirclePlus,
   Clock,
@@ -84,7 +84,7 @@ import {
   startLocalMedia,
   RoomHandles
 } from '@/lib/webrtc';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from '@/hooks/use-toast';
 
 // Interface definitions
 interface CallParticipant {
@@ -146,7 +146,7 @@ export function VideoAudioCall({
   const [roomHandles, setRoomHandles] = useState<RoomHandles | null>(null);
   
   const videoContainerRef = useRef<HTMLDivElement>(null);
-  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const localVideoRef = useRef<HTMLVideoElement | null>(null) as React.MutableRefObject<HTMLVideoElement | null>;
   const participantVideosRef = useRef<{ [key: string]: HTMLVideoElement | null }>({});
   const screenShareRef = useRef<HTMLVideoElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -793,7 +793,9 @@ export function VideoAudioCall({
         <video
           ref={el => {
             if (isLocal) {
-              localVideoRef.current = el;
+              if (localVideoRef && 'current' in localVideoRef) {
+                (localVideoRef as React.MutableRefObject<HTMLVideoElement | null>).current = el;
+              }
             } else {
               if (participantVideosRef.current) {
                 participantVideosRef.current[participant.uid] = el;
@@ -863,8 +865,8 @@ export function VideoAudioCall({
       <div className="col-span-full row-span-2 relative overflow-hidden rounded-lg bg-slate-900">
         <video
           ref={el => {
-            if (screenSharer.uid === user?.uid) {
-              screenShareRef.current = el;
+            if (screenSharer.uid === user?.uid && screenShareRef.current) {
+              screenShareRef.current.srcObject = el?.srcObject || null;
             }
           }}
           autoPlay
@@ -885,7 +887,7 @@ export function VideoAudioCall({
               className="h-7 px-2 text-xs hover:bg-red-500/20 hover:text-red-400"
               onClick={toggleScreenShare}
             >
-              <StopScreenShare className="h-3.5 w-3.5 mr-1" />
+              <ScreenShare className="h-3.5 w-3.5 mr-1" />
               Stop sharing
             </Button>
           )}
@@ -1193,7 +1195,7 @@ export function VideoAudioCall({
             onClick={toggleScreenShare}
           >
             {screenShareEnabled ? (
-              <StopScreenShare className="h-5 w-5" />
+              <ScreenShare className="h-5 w-5" />
             ) : (
               <ScreenShare className="h-5 w-5" />
             )}

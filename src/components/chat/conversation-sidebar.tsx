@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -194,13 +193,16 @@ export function ConversationSidebar() {
     : null;
   const [usersSnapshot, loading, error] = useCollection(usersQuery);
 
+  // Ensure uid and jobTitle are included in the mapped conversations
   const conversations = usersSnapshot?.docs.map(doc => ({ 
     id: doc.id, 
+    uid: doc.data().uid || doc.id, // Ensure 'uid' is included
     name: doc.data().name || 'Unknown', // Ensure 'name' is included
     email: doc.data().email || '', // Ensure 'email' is included
+    jobTitle: doc.data().jobTitle || '', // Ensure 'jobTitle' is included
     ...doc.data(),
     // Simulate some online statuses for demo purposes
-    status: Math.random() > 0.7 ? 'online' : Math.random() > 0.5 ? 'away' : 'offline',
+    status: (Math.random() > 0.7 ? 'online' : Math.random() > 0.5 ? 'away' : 'offline') as 'online' | 'offline' | 'away' | 'dnd',
     favorite: Math.random() > 0.8 // Random favorites for demo
   })) || [];
   

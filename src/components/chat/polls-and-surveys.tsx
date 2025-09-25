@@ -74,7 +74,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from '@/hooks/use-toast';
 
 import {
   Vote,
@@ -905,68 +905,64 @@ export function PollCard({
             const isSelected = userVotes.includes(option.id);
             
             return (
-              <div key={option.id} className="space-y-1">
+                <div key={option.id} className="space-y-1">
                 <button
                   className={cn(
-                    "w-full text-left flex items-center gap-2 p-2 rounded-md relative",
-                    isSelected ? "bg-primary/10 text-primary" : "hover:bg-muted",
-                    !isActive && "pointer-events-none",
+                  "w-full text-left flex items-center gap-2 p-2 rounded-md relative",
+                  isSelected ? "bg-primary/10 text-primary" : "hover:bg-muted",
+                  !isActive && "pointer-events-none",
                   )}
                   onClick={() => handleVoteToggle(option.id)}
                   disabled={!isActive || loading}
                 >
                   {poll.pollType === 'single' ? (
-                    <RadioGroupItem 
-                      checked={isSelected}
-                      value={option.id}
-                      id={`option-${option.id}`}
-                      disabled={!isActive}
-                    />
+                  <RadioGroupItem 
+                    checked={isSelected}
+                    value={option.id}
+                    id={`option-${option.id}`}
+                    disabled={!isActive}
+                  />
                   ) : (
-                    <Checkbox 
-                      checked={isSelected}
-                      id={`option-${option.id}`}
-                      disabled={!isActive}
-                    />
+                  <Checkbox 
+                    checked={isSelected}
+                    id={`option-${option.id}`}
+                    disabled={!isActive}
+                  />
                   )}
                   <Label 
-                    htmlFor={`option-${option.id}`} 
-                    className="flex-1 cursor-pointer font-normal"
+                  htmlFor={`option-${option.id}`} 
+                  className="flex-1 cursor-pointer font-normal"
                   >
-                    {option.text}
+                  {option.text}
                   </Label>
                   <span className="text-sm font-medium">
-                    {percentage}%
+                  {percentage}%
                   </span>
                   
                   {poll.visibility === 'public' && option.votes > 0 && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="flex">
-                            <Users className="h-4 w-4 text-muted-foreground" />
-                            <span className="sr-only">
-                              {option.votes} voter{option.votes !== 1 ? 's' : ''}
-                            </span>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{option.votes} voter{option.votes !== 1 ? 's' : ''}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                  <TooltipProvider>
+                    <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <span className="sr-only">
+                        {option.votes} voter{option.votes !== 1 ? 's' : ''}
+                      </span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{option.votes} voter{option.votes !== 1 ? 's' : ''}</p>
+                    </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   )}
                 </button>
                 
                 <Progress
                   value={percentage}
-                  className={cn(
-                    "h-1.5 w-full bg-muted",
-                    isSelected && "bg-primary/20"
-                  )}
-                  indicatorClassName={isSelected ? "bg-primary" : undefined}
+                  className={cn("h-1.5 w-full bg-muted", isSelected && "bg-primary/20")}
                 />
-              </div>
+                </div>
             );
           })}
         </div>
