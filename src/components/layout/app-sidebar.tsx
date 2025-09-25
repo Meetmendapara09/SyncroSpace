@@ -334,7 +334,12 @@ export function AppSidebar() {
                   isActive={isActive(item.href)}
                   className="group relative overflow-hidden rounded-lg transition-all duration-300 hover:bg-gradient-to-r hover:from-blue-50/80 hover:to-purple-50/80 dark:hover:from-blue-950/30 dark:hover:to-purple-950/30 hover:shadow-md hover:scale-[1.01]"
                 >
-                  <Link href={item.href} className="flex items-center gap-2 px-2 py-2 relative">
+                  <Link 
+                    href={item.href} 
+                    className="flex items-center gap-2 px-2 py-2 relative"
+                    prefetch={true}
+                    scroll={false}
+                  >
                     {isActive(item.href) && (
                       <>
                         <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-lg"></div>
@@ -390,7 +395,12 @@ export function AppSidebar() {
                     isActive={isActive(item.href)}
                     className="group relative overflow-hidden rounded-lg transition-all duration-300 hover:bg-gradient-to-r hover:from-emerald-50/80 hover:to-teal-50/80 dark:hover:from-emerald-950/30 dark:hover:to-teal-950/30 hover:shadow-md hover:scale-[1.01]"
                   >
-                    <Link href={item.href} className="flex items-center gap-2 px-2 py-2 relative">
+                    <Link 
+                      href={item.href} 
+                      className="flex items-center gap-2 px-2 py-2 relative"
+                      prefetch={true}
+                      scroll={false}
+                    >
                       {isActive(item.href) && (
                         <>
                           <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 rounded-lg"></div>
@@ -462,7 +472,12 @@ export function AppSidebar() {
                       isActive={isActive(`/space/${space.id}`)}
                       className="group relative overflow-hidden rounded-lg transition-all duration-300 hover:shadow-md hover:scale-[1.01]"
                     >
-                      <Link href={`/space/${space.id}`} className="flex items-center gap-2 px-2 py-2 relative">
+                      <Link 
+                        href={`/space/${space.id}`} 
+                        className="flex items-center gap-2 px-2 py-2 relative"
+                        prefetch={true}
+                        scroll={false}
+                      >
                         {isActive(`/space/${space.id}`) && (
                           <>
                             <div className={`absolute inset-0 bg-gradient-to-r ${spaceGradients[gradientIndex]} opacity-10 rounded-lg`}></div>
@@ -529,7 +544,12 @@ export function AppSidebar() {
               isActive={isActive('/account')}
               className="group relative overflow-hidden rounded-lg transition-all duration-300 hover:bg-gradient-to-r hover:from-slate-50/80 hover:to-slate-100/80 dark:hover:from-slate-800/80 dark:hover:to-slate-700/80 hover:shadow-md hover:scale-[1.01]"
             >
-              <Link href="/account" className="flex items-center gap-2 px-2 py-3 relative">
+              <Link 
+                href="/account" 
+                className="flex items-center gap-2 px-2 py-3 relative"
+                prefetch={true}
+                scroll={false}
+              >
                 {isActive('/account') && (
                   <>
                     <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-lg"></div>
@@ -566,7 +586,12 @@ export function AppSidebar() {
               isActive={isActive('/support')} 
               className="group relative overflow-hidden rounded-lg transition-all duration-300 hover:bg-gradient-to-r hover:from-emerald-50/80 hover:to-teal-50/80 dark:hover:from-emerald-950/30 dark:hover:to-teal-950/30 hover:shadow-md hover:scale-[1.01]"
             >
-              <Link href="/support" className="flex items-center gap-2 px-2 py-2 relative">
+              <Link 
+                href="/support" 
+                className="flex items-center gap-2 px-2 py-2 relative"
+                prefetch={true}
+                scroll={false}
+              >
                 {isActive('/support') && (
                   <>
                     <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 rounded-lg"></div>
