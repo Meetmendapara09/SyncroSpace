@@ -87,63 +87,71 @@ function ConversationListItem({ convo }: { convo: User }) {
       // Reference to the conversation's messages in RTDB
       const conversationRef = rtdbRef(rtdb, `spaces/${conversationId}/messages`);
       
+      // Use a more efficient approach to prevent excessive re-renders
       const unsubscribe = onValue(conversationRef, (snapshot) => {
         if (!snapshot.exists()) return;
         
-        const data = snapshot.val();
-        const messages = Object.values(data || {});
+        // Use a local variable to avoid multiple state updates
+        let localUnreadCount = 0;
+        let localLastMessage = null;
+        let localLastMessageTime = null;
         
-        if (messages.length === 0) return;
+        const data = snapshot.val();
+        if (!data) return;
+        
+        // Convert to array and sort once
+        const messagesArray = Object.values(data || {}) as any[];
+        if (messagesArray.length === 0) return;
         
         // Count unread messages
-        const unreadMessages = (messages as any[]).filter(msg => 
+        localUnreadCount = messagesArray.filter(msg => 
           msg.uid !== user.uid && (!msg.readBy || !msg.readBy.includes(user.uid))
-        );
+        ).length;
         
-        setUnreadCount(unreadMessages.length);
-        
-        // Get last message
-        const sortedMessages = [...(messages as any[])].sort((a, b) => b.timestamp - a.timestamp);
+        // Sort messages by timestamp (newest first)
+        const sortedMessages = [...messagesArray].sort((a, b) => b.timestamp - a.timestamp);
         if (sortedMessages.length > 0) {
           const latest = sortedMessages[0];
           
           // Format timestamp
           const date = new Date(latest.timestamp);
           const now = new Date();
-          let formattedTime;
           
           if (date.toDateString() === now.toDateString()) {
             // Today, show time
-            formattedTime = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            localLastMessageTime = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           } else {
             // Not today, show date
-            formattedTime = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+            localLastMessageTime = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
           }
           
           // Format message based on type
-          let messageText;
           if (latest.type === 'image') {
-            messageText = '📷 Image';
+            localLastMessage = '📷 Image';
           } else if (latest.type === 'file') {
-            messageText = '📎 File: ' + (latest.fileName || 'Attachment');
+            localLastMessage = '📎 File: ' + (latest.fileName || 'Attachment');
           } else if (latest.type === 'reaction') {
-            messageText = '👍 Reaction';
+            localLastMessage = '👍 Reaction';
           } else {
-            messageText = latest.message;
+            localLastMessage = latest.message;
           }
           
           // Truncate message if too long
-          if (messageText && messageText.length > 30) {
-            messageText = messageText.substring(0, 27) + '...';
+          if (localLastMessage && localLastMessage.length > 30) {
+            localLastMessage = localLastMessage.substring(0, 27) + '...';
           }
-          
-          setLastMessage(messageText);
-          setLastMessageTime(formattedTime);
         }
+        
+        // Batch state updates to minimize re-renders
+        setUnreadCount(localUnreadCount);
+        setLastMessage(localLastMessage);
+        setLastMessageTime(localLastMessageTime);
+      }, (error) => {
+        console.error('Error loading conversation messages:', error);
       });
       
       return () => unsubscribe();
-    }, [user, conversationId, convo.uid]);
+    }, [user?.uid, conversationId]); // Remove convo.uid from dependency array to avoid unnecessary rerenders
     
     const isActive = pathname === `/chat/${convo.uid}`;
     
