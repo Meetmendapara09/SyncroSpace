@@ -31,9 +31,7 @@ export const dynamic = 'error';
 export function generateStaticParams() {
   // Return static parameters for build
   return [
-    { $PARAM: 'demo-1' },
-    { $PARAM: 'demo-2' },
-    { $PARAM: 'demo-3' },
+    { $PARAM: 'sample' },
   ];
 }
 

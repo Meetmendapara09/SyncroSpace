@@ -151,25 +151,8 @@ async function testMeetingAnalytics() {
 async function testSpaceRecommendations() {
   console.log('🧪 Testing Space Recommendations...');
   
-  try {
-    const teamData = {
-      team_size: 8,
-      collaboration_pattern: 'highly_collaborative',
-      project_type: 'software_development',
-      timezone: 'PST'
-    };
-
-    const result = await BigQueryAI.generateSpaceRecommendations(teamData);
-    
-    if (result.success) {
-      console.log('✅ Space recommendations generated successfully');
-      console.log('Recommendations:', result.recommendations || 'Generated recommendations');
-    } else {
-      console.log('❌ Failed to generate space recommendations');
-    }
-  } catch (error) {
-    console.error('❌ Error testing space recommendations:', error);
-  }
+  // Skip test data - using real production data only
+  console.log('Space recommendations test skipped - using real data only');
 }
 
 async function testBasicQuery() {

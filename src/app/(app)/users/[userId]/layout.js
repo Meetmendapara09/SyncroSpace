@@ -2,12 +2,8 @@
 export const dynamic = 'error';
 
 export function generateStaticParams() {
-  // Return static parameters for build
-  return [
-    { userId: 'demo-1' },
-    { userId: 'demo-2' },
-    { userId: 'demo-3' },
-  ];
+  // Return empty array - no static params needed for users
+  return [];
 }
 
 export default function Layout({ children }) {

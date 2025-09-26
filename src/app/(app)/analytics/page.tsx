@@ -2,13 +2,12 @@
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { UserEngagementChart } from '@/components/analytics/user-engagement-chart';
-import { TeamActivityChart } from '@/components/analytics/team-activity-chart';
-import { FeatureUsageChart } from '@/components/analytics/feature-usage-chart';
 import { ExecutiveInsightsDashboard } from '@/components/analytics/executive-insights-dashboard';
 import { UserEngagementForecast } from '@/components/analytics/user-engagement-forecast';
 import { EnhancedMeetingAnalytics } from '@/components/analytics/enhanced-meeting-analytics';
-import { PersonalizedMarketingEngine } from '@/components/marketing/personalized-marketing-engine';
+import { UserEngagementChart } from '@/components/analytics/user-engagement-chart';
+import { FeatureUsageChart } from '@/components/analytics/feature-usage-chart';
+import { TeamActivityChart } from '@/components/analytics/team-activity-chart';
 import { Activity, BarChart, Users, Megaphone, Send, Brain, TrendingUp, Target } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
@@ -188,7 +187,6 @@ export default function AnalyticsPage() {
         <ExecutiveInsightsDashboard />
         <UserEngagementForecast />
         <EnhancedMeetingAnalytics />
-        <PersonalizedMarketingEngine />
       </div>
 
       <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-5">

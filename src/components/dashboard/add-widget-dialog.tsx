@@ -89,12 +89,12 @@ const AVAILABLE_WIDGETS: WidgetTemplate[] = [
     defaultSize: 'large'
   },
   {
-    id: 'team-activity',
+    id: 'team-overview',
     type: 'team',
-    title: 'Team Activity',
-    description: 'Recent activities from your teams',
+    title: 'Team Overview',
+    description: 'Overview of your teams and recent activities',
     icon: <Users className="h-5 w-5" />,
-    defaultSize: 'medium'
+    defaultSize: 'large'
   },
   {
     id: 'messages',

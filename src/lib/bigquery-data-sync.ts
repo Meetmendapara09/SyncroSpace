@@ -168,7 +168,7 @@ export class BigQueryDataSyncService {
           ).join(', ')}
         `;
         
-        const { executeBigQuerySQL } = await import('@/lib/bigquery');
+        const { executeBigQuerySQL } = require('@/lib/bigquery');
         await executeBigQuerySQL(sql);
         console.log(`Synced ${engagementData.length} engagement records to BigQuery`);
       }

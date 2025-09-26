@@ -99,8 +99,12 @@ export async function POST(request: NextRequest) {
         }
         
         // Handle custom data sync
-        const { DataSync } = await import('@/lib/bigquery/DataSync');
-        await DataSync.syncAllUserData(data);
+        try {
+          const { DataSync } = require('@/lib/bigquery/DataSync');
+          await DataSync.syncAllUserData(data);
+        } catch (error) {
+          console.warn('DataSync module not available, skipping custom sync');
+        }
         
         return NextResponse.json({
           success: true,

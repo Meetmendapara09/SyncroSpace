@@ -1,12 +1,13 @@
 
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
-import './globals.css';
+// import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { cn } from '@/lib/utils';
 import { Chatbot } from '@/components/chatbot/chatbot';
 import { MeetingReminderService } from '@/components/meeting-reminder-service';
 import { ThemeProvider } from '@/components/ui/theme-provider';
+import { ReduxProvider } from '@/components/providers/redux-provider';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -43,10 +44,12 @@ export default function RootLayout({
         suppressHydrationWarning={true}
       >
         <ThemeProvider attribute="class" defaultTheme="system">
-          {children}
-          <Toaster />
-          <Chatbot />
-          <MeetingReminderService />
+          <ReduxProvider>
+            {children}
+            <Toaster />
+            <Chatbot />
+            <MeetingReminderService />
+          </ReduxProvider>
         </ThemeProvider>
       </body>
     </html>

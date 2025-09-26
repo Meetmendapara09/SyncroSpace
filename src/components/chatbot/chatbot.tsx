@@ -112,9 +112,11 @@ export function Chatbot() {
             
             const response = await withAIErrorHandling(
                 async () => chat({
-                    history: newMessages.slice(0, -1),
-                    message: messageToSend,
-                    role: userData?.role
+                    messages: newMessages.slice(0, -1).map(msg => ({
+                        role: msg.role === 'model' ? 'assistant' : 'user',
+                        content: msg.content,
+                        timestamp: Date.now()
+                    }))
                 }),
                 { 
                     operation: 'Chatbot response',
@@ -123,7 +125,7 @@ export function Chatbot() {
                     fallbackFn: () => fallbackResponse
                 }
             );
-            setMessages([...newMessages, { role: 'model', content: response.message }]);
+            setMessages([...newMessages, { role: 'model', content: response.message.content }]);
         } catch (error: any) {
             setMessages([...newMessages, { role: 'model', content: `Sorry, I encountered an error: ${error.message || 'Please try again.'}` }]);
         } finally {

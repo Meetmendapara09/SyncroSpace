@@ -2,6 +2,49 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Multiplayer Sessions: Real-time room management
+    match /multiplayer_sessions/{sessionId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && 
+        (resource.data.createdBy == request.auth.uid || 
+         request.auth.uid in resource.data.participants);
+      allow delete: if isAdmin() || resource.data.createdBy == request.auth.uid;
+      
+      // Room participants data
+      match /participants/{participantId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && (
+          request.auth.uid == participantId ||
+          resource.data.sessionHost == request.auth.uid
+        );
+      }
+      
+      // Real-time chat messages in multiplayer rooms
+      match /chat_messages/{messageId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && request.auth.uid == request.resource.data.userId;
+        allow update, delete: if isAdmin() || request.auth.uid == resource.data.userId;
+      }
+      
+      // Office zone states and occupancy
+      match /office_zones/{zoneId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn();
+      }
+    }
+
+    // Multiplayer Rooms: Persistent room configurations
+    match /multiplayer_rooms/{roomId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (
+        resource.data.owner == request.auth.uid ||
+        request.auth.uid in resource.data.moderators
+      );
+      allow delete: if isAdmin() || resource.data.owner == request.auth.uid;
+    }
+
     // Video/Audio Meeting Integration: Calls collection
     match /calls/{callId} {
       // Allow read/write for authenticated users (members of the call)
@@ -210,6 +253,276 @@ service cloud.firestore {
       allow read, update, delete: if isUser(resource.data.userId) || isAdmin() || isDevelopment();
       allow create: if isUser(request.resource.data.userId) || isAdmin() || isDevelopment();
       allow list: if isSignedIn() && request.query.limit <= 100;
+    }
+    
+    // Team Tasks: manage task visibility and access based on team membership
+    // Helper function to check if user has task permission in the team
+    function hasTaskPermission(teamId, permission) {
+      let teamDoc = get(/databases/$(database)/documents/teams/$(teamId));
+      let teamMembers = teamDoc.data.members;
+      
+      // Check if user is in the team
+      return request.auth.uid in teamMembers &&
+        // Check if user has the specific permission
+        get(/databases/$(database)/documents/teams/$(teamId)/members/$(request.auth.uid)).data.permissions[permission] == true;
+    }
+    
+    match /teamTasks/{taskId} {
+      
+      // Allow read if user is a team member with viewTasks permission
+      allow read: if isSignedIn() && (
+        hasTaskPermission(resource.data.teamId, "viewTasks") || 
+        isAdmin() || 
+        isDevelopment()
+      );
+      
+      // Allow create if user has createTasks permission in team
+      allow create: if isSignedIn() && (
+        hasTaskPermission(request.resource.data.teamId, "createTasks") ||
+        isAdmin() || 
+        isDevelopment()
+      );
+      
+      // Allow update if user has updateTasks permission in team
+      allow update: if isSignedIn() && (
+        hasTaskPermission(resource.data.teamId, "updateTasks") ||
+        isAdmin() || 
+        isDevelopment()
+      );
+      
+      // Allow delete if user has deleteTasks permission in team
+      allow delete: if isSignedIn() && (
+        hasTaskPermission(resource.data.teamId, "deleteTasks") ||
+        isAdmin() || 
+        isDevelopment()
+      );
+      
+      // Limit queries to prevent excessive reads
+      allow list: if isSignedIn() && request.query.limit <= 100;
+    }
+    
+    // Task Comments: manage comment access based on team membership
+    match /taskComments/{commentId} {
+      // Allow read if user can view tasks in the team
+      allow read: if isSignedIn() && (
+        hasTaskPermission(resource.data.teamId, "viewTasks") ||
+        isAdmin() || 
+        isDevelopment()
+      );
+      
+      // Allow create if user can create tasks in the team
+      allow create: if isSignedIn() && (
+        hasTaskPermission(request.resource.data.teamId, "createTasks") ||
+        isAdmin() || 
+        isDevelopment()
+      );
+      
+      // Allow update if user is the comment creator
+      allow update: if isSignedIn() && (
+        resource.data.createdBy == request.auth.uid ||
+        isAdmin() || 
+        isDevelopment()
+      );
+      
+      // Allow delete if user is the comment creator or has manageTasks permission
+      allow delete: if isSignedIn() && (
+        resource.data.createdBy == request.auth.uid ||
+        hasTaskPermission(resource.data.teamId, "manageTasks") ||
+        isAdmin() || 
+        isDevelopment()
+      );
+      
+      // Limit queries to prevent excessive reads
+      allow list: if isSignedIn() && request.query.limit <= 100;
+    }
+    
+    // Task Checklist Items: manage checklist access based on team membership
+    match /taskChecklistItems/{itemId} {
+      // Allow read if user can view tasks in the team
+      allow read: if isSignedIn() && (
+        hasTaskPermission(resource.data.teamId, "viewTasks") ||
+        isAdmin() || 
+        isDevelopment()
+      );
+      
+      // Allow create/update/delete if user can update tasks in the team
+      allow create: if isSignedIn() && (
+        hasTaskPermission(request.resource.data.teamId, "updateTasks") ||
+        isAdmin() || 
+        isDevelopment()
+      );
+      
+      allow update, delete: if isSignedIn() && (
+        hasTaskPermission(resource.data.teamId, "updateTasks") ||
+        isAdmin() || 
+        isDevelopment()
+      );
+      
+      // Limit queries to prevent excessive reads
+      allow list: if isSignedIn() && request.query.limit <= 100;
+    }
+    
+    // Team Goals: manage goal visibility and access based on team membership
+    match /teamGoals/{goalId} {
+      // Allow read if user can view goals in the team
+      allow read: if isSignedIn() && (
+        hasTaskPermission(resource.data.teamId, "viewGoals") ||
+        isAdmin() || 
+        isDevelopment()
+      );
+      
+      // Allow create if user has createGoals permission in team
+      allow create: if isSignedIn() && (
+        hasTaskPermission(request.resource.data.teamId, "createGoals") ||
+        isAdmin() || 
+        isDevelopment()
+      );
+      
+      // Allow update if user has updateGoals permission in team
+      allow update: if isSignedIn() && (
+        hasTaskPermission(resource.data.teamId, "updateGoals") ||
+        isAdmin() || 
+        isDevelopment()
+      );
+      
+      // Allow delete if user has deleteGoals permission in team
+      allow delete: if isSignedIn() && (
+        hasTaskPermission(resource.data.teamId, "deleteGoals") ||
+        isAdmin() || 
+        isDevelopment()
+      );
+      
+      // Limit queries to prevent excessive reads
+      allow list: if isSignedIn() && request.query.limit <= 100;
+    }
+    
+    // Team Analytics: allow users with viewAnalytics permission to access
+    match /teamAnalytics/{analyticsId} {
+      // Allow read if user has viewAnalytics permission
+      allow read: if isSignedIn() && (
+        hasTaskPermission(resource.data.teamId, "viewAnalytics") ||
+        isAdmin() || 
+        isDevelopment()
+      );
+      
+      // Only system processes and admins can write analytics data
+      allow create, update: if isAdmin() || isDevelopment();
+      allow delete: if isAdmin() || isDevelopment();
+      
+      // Limit queries to prevent excessive reads
+      allow list: if isSignedIn() && request.query.limit <= 100;
+    }
+    
+    // Time entries for tracking work time
+    match /timeEntries/{entryId} {
+      // Users can read/write their own time entries
+      allow read, create, update: if isSignedIn() && 
+        (request.auth.uid == request.resource.data.userId || isAdmin() || isDevelopment());
+      
+      // Users can only delete their own entries, or admins can delete any
+      allow delete: if isSignedIn() && 
+        (request.auth.uid == resource.data.userId || isAdmin() || isDevelopment());
+      
+      // Limit queries to prevent excessive reads
+      allow list: if isSignedIn() && request.query.limit <= 100;
+    }
+    
+    // Team Onboarding Workflows
+    match /teamOnboardingWorkflows/{workflowId} {
+      // Allow read if user is in the team
+      allow read: if isSignedIn() && (
+        hasTaskPermission(resource.data.teamId, "viewOnboarding") ||
+        isAdmin() || 
+        isDevelopment()
+      );
+      
+      // Allow create/update/delete if user has manageOnboarding permission
+      allow create: if isSignedIn() && (
+        hasTaskPermission(request.resource.data.teamId, "manageOnboarding") ||
+        isAdmin() || 
+        isDevelopment()
+      );
+      
+      allow update, delete: if isSignedIn() && (
+        hasTaskPermission(resource.data.teamId, "manageOnboarding") ||
+        isAdmin() || 
+        isDevelopment()
+      );
+    }
+    
+    // Onboarding Workflow Steps
+    match /onboardingWorkflowSteps/{stepId} {
+      function getWorkflowTeamId() {
+        let workflowId = resource.data.workflowId;
+        return get(/databases/$(database)/documents/teamOnboardingWorkflows/$(workflowId)).data.teamId;
+      }
+      
+      // Allow read if user can view onboarding in the team
+      allow read: if isSignedIn() && (
+        hasTaskPermission(getWorkflowTeamId(), "viewOnboarding") ||
+        isAdmin() || 
+        isDevelopment()
+      );
+      
+      // Allow create/update/delete if user has manageOnboarding permission
+      allow create, update, delete: if isSignedIn() && (
+        hasTaskPermission(getWorkflowTeamId(), "manageOnboarding") ||
+        isAdmin() || 
+        isDevelopment()
+      );
+    }
+    
+    // Member Onboarding Assignments
+    match /memberOnboardingAssignments/{assignmentId} {
+      // Allow read if user is assigned or has viewOnboarding permission
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.memberId ||
+        hasTaskPermission(resource.data.teamId, "viewOnboarding") ||
+        isAdmin() || 
+        isDevelopment()
+      );
+      
+      // Allow create/update if user has manageOnboarding permission
+      allow create, update: if isSignedIn() && (
+        hasTaskPermission(request.resource.data.teamId, "manageOnboarding") ||
+        isAdmin() || 
+        isDevelopment()
+      );
+      
+      // Allow delete if user has manageOnboarding permission
+      allow delete: if isSignedIn() && (
+        hasTaskPermission(resource.data.teamId, "manageOnboarding") ||
+        isAdmin() || 
+        isDevelopment()
+      );
+    }
+    
+    // Member Onboarding Progress
+    match /memberOnboardingProgress/{progressId} {
+      // Allow read if user is the member or has viewOnboarding permission
+      allow read: if isSignedIn() && (
+        request.auth.uid == getOnboardingMemberId(resource.data.assignmentId) ||
+        hasTaskPermission(getOnboardingTeamId(resource.data.assignmentId), "viewOnboarding") ||
+        isAdmin() || 
+        isDevelopment()
+      );
+      
+      // Allow create/update if user is the member or has manageOnboarding permission
+      allow create, update: if isSignedIn() && (
+        request.auth.uid == getOnboardingMemberId(request.resource.data.assignmentId) ||
+        hasTaskPermission(getOnboardingTeamId(request.resource.data.assignmentId), "manageOnboarding") ||
+        isAdmin() || 
+        isDevelopment()
+      );
+      
+      // Helper functions to get team and member IDs from assignment
+      function getOnboardingTeamId(assignmentId) {
+        return get(/databases/$(database)/documents/memberOnboardingAssignments/$(assignmentId)).data.teamId;
+      }
+      
+      function getOnboardingMemberId(assignmentId) {
+        return get(/databases/$(database)/documents/memberOnboardingAssignments/$(assignmentId)).data.memberId;
+      }
     }
     
     // Announcements: only admins can create, users can read announcements addressed to them

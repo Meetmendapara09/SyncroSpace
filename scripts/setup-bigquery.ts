@@ -203,73 +203,8 @@ async function createAIModels() {
 }
 
 async function insertSampleData() {
-  console.log('📝 Inserting sample data...');
-  
-  const sampleData = {
-    user_analytics: [
-      {
-        user_id: 'sample_user_1',
-        name: 'John Doe',
-        email: 'john@example.com',
-        role: 'admin',
-        last_active: new Date().toISOString(),
-        spaces_count: 5,
-        meetings_attended: 12,
-        engagement_score: 85.5,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      {
-        user_id: 'sample_user_2',
-        name: 'Jane Smith',
-        email: 'jane@example.com',
-        role: 'user',
-        last_active: new Date().toISOString(),
-        spaces_count: 3,
-        meetings_attended: 8,
-        engagement_score: 72.0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ],
-    meeting_analytics: [
-      {
-        meeting_id: 'sample_meeting_1',
-        space_id: 'sample_space_1',
-        title: 'Weekly Team Standup',
-        duration_minutes: 30,
-        participant_count: 5,
-        action_items_count: 3,
-        effectiveness_score: 8.5,
-        meeting_type: 'status_update',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ],
-    space_analytics: [
-      {
-        space_id: 'sample_space_1',
-        name: 'Development Team Space',
-        category: 'Development',
-        member_count: 8,
-        active_meetings: 1,
-        total_meetings: 15,
-        avg_rating: 4.7,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ],
-  };
-
-  for (const [tableName, data] of Object.entries(sampleData)) {
-    try {
-      const table = bigquery.dataset(DATASET_ID).table(tableName);
-      await table.insert(data);
-      console.log(`✅ Sample data inserted into ${tableName}`);
-    } catch (error) {
-      console.error(`❌ Failed to insert sample data into ${tableName}:`, error);
-    }
-  }
+  console.log('📝 Sample data insertion skipped - using real data only');
+  // No sample data will be inserted - the system will work with real production data
 }
 
 async function main() {

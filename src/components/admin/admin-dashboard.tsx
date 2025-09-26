@@ -386,7 +386,7 @@ export function AdminDashboard({}: AdminDashboardProps) {
       const data = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      })) as AnalyticsData[];
+      })) as any[];
 
       setAnalyticsData(data);
     } catch (error) {

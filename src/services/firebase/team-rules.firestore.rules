@@ -1,0 +1,405 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/adminUsers/$(request.auth.uid));
+    }
+    
+    function getTeamMembership(teamId) {
+      return get(/databases/$(database)/documents/teamMembers/$(teamId + '_' + request.auth.uid));
+    }
+    
+    function isTeamMember(teamId) {
+      return isSignedIn() && exists(/databases/$(database)/documents/teamMembers/$(teamId + '_' + request.auth.uid)) && 
+        getTeamMembership(teamId).data.status == 'active';
+    }
+    
+    function isTeamAdmin(teamId) {
+      return isSignedIn() && isTeamMember(teamId) && 
+        (getTeamRole(getTeamMembership(teamId).data.roleId).data.isAdmin == true);
+    }
+    
+    function getTeamRole(roleId) {
+      return get(/databases/$(database)/documents/teamRoles/$(roleId));
+    }
+    
+    function hasTeamPermission(teamId, permission) {
+      let membership = getTeamMembership(teamId);
+      let role = getTeamRole(membership.data.roleId);
+      return role.data.isAdmin || role.data.permissions[permission] == true;
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if request.auth.uid == userId;
+    }
+
+    // Teams
+    match /teams/{teamId} {
+      // Anyone can read public teams, only members can read private teams
+      allow read: if !resource.data.isPrivate || isTeamMember(teamId);
+      
+      // Only team admins can update team details
+      allow update: if isTeamAdmin(teamId);
+      
+      // Anyone can create a team
+      allow create: if isSignedIn() && 
+        request.resource.data.createdBy == request.auth.uid;
+      
+      // Only team admins can delete a team
+      allow delete: if isTeamAdmin(teamId);
+    }
+
+    // Team Members
+    match /teamMembers/{membershipId} {
+      // Only team members can read team memberships
+      allow read: if isSignedIn() && 
+        isTeamMember(resource.data.teamId);
+      
+      // Team admins can create/update/delete memberships
+      allow write: if isSignedIn() && 
+        isTeamAdmin(resource.data.teamId);
+        
+      // Users can update their own notification settings
+      allow update: if isSignedIn() && 
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['notificationSettings']);
+    }
+
+    // Team Roles
+    match /teamRoles/{roleId} {
+      // Only team members can read team roles
+      allow read: if isSignedIn() && 
+        isTeamMember(resource.data.teamId);
+      
+      // Only team admins can write team roles
+      allow write: if isSignedIn() && 
+        isTeamAdmin(resource.data.teamId);
+    }
+
+    // Team Resources
+    match /teamResources/{resourceId} {
+      // Team members can read resources
+      allow read: if isSignedIn() && 
+        isTeamMember(resource.data.teamId) &&
+        hasTeamPermission(resource.data.teamId, 'viewResources');
+      
+      // Team members with appropriate permissions can edit resources
+      allow create, update: if isSignedIn() && 
+        isTeamMember(resource.data.teamId) &&
+        hasTeamPermission(resource.data.teamId, 'editResources');
+      
+      // Only team admins can delete resources
+      allow delete: if isSignedIn() && 
+        isTeamAdmin(resource.data.teamId);
+    }
+
+    // Resource Categories
+    match /resourceCategories/{categoryId} {
+      // Team members can read categories
+      allow read: if isSignedIn() && 
+        isTeamMember(resource.data.teamId) &&
+        hasTeamPermission(resource.data.teamId, 'viewResources');
+      
+      // Team members with appropriate permissions can manage categories
+      allow write: if isSignedIn() && 
+        isTeamMember(resource.data.teamId) &&
+        hasTeamPermission(resource.data.teamId, 'editResources');
+    }
+
+    // Resource Allocations
+    match /resourceAllocations/{allocationId} {
+      // Team members can read allocations
+      allow read: if isSignedIn() && 
+        isTeamMember(resource.data.teamId) &&
+        hasTeamPermission(resource.data.teamId, 'viewResources');
+      
+      // Team members with appropriate permissions can create allocations
+      allow create, update: if isSignedIn() && 
+        isTeamMember(resource.data.teamId) &&
+        hasTeamPermission(resource.data.teamId, 'allocateResources');
+      
+      // Only team admins can delete allocations
+      allow delete: if isSignedIn() && 
+        isTeamAdmin(resource.data.teamId);
+    }
+
+    // Team Channels
+    match /teamChannels/{channelId} {
+      // Team members can read public channels
+      allow read: if isSignedIn() && 
+        isTeamMember(resource.data.teamId) &&
+        (!resource.data.isPrivate || resource.data.members.hasAny([request.auth.uid]));
+      
+      // Team admins and members with permissions can create channels
+      allow create: if isSignedIn() && 
+        isTeamMember(request.resource.data.teamId) &&
+        hasTeamPermission(request.resource.data.teamId, 'manageChannels');
+      
+      // Channel creators and team admins can update/delete
+      allow update, delete: if isSignedIn() && 
+        (resource.data.createdBy == request.auth.uid || isTeamAdmin(resource.data.teamId) || 
+         hasTeamPermission(resource.data.teamId, 'manageChannels'));
+    }
+
+    // Team Messages
+    match /teamMessages/{messageId} {
+      // Members can read messages in channels they have access to
+      allow read: if isSignedIn() && 
+        getChannelAccessible(resource.data.channelId);
+      
+      // Members can write messages to channels they have access to
+      allow create: if isSignedIn() && 
+        getChannelAccessible(request.resource.data.channelId) &&
+        request.resource.data.senderId == request.auth.uid;
+      
+      // Only message creator, channel owner, or team admin can update/delete
+      allow update, delete: if isSignedIn() && 
+        (resource.data.senderId == request.auth.uid || 
+         getChannel(resource.data.channelId).data.createdBy == request.auth.uid ||
+         isTeamAdmin(getChannel(resource.data.channelId).data.teamId));
+      
+      // Helper function to check channel access
+      function getChannel(channelId) {
+        return get(/databases/$(database)/documents/teamChannels/$(channelId));
+      }
+      
+      function getChannelAccessible(channelId) {
+        let channel = getChannel(channelId);
+        return isTeamMember(channel.data.teamId) && 
+          (!channel.data.isPrivate || channel.data.members.hasAny([request.auth.uid]));
+      }
+    }
+
+    // Team Announcements
+    match /teamAnnouncements/{announcementId} {
+      // Members can read announcements visible to them
+      allow read: if isSignedIn() && 
+        isTeamMember(resource.data.teamId) &&
+        (resource.data.visibleTo == 'all_members' || 
+         (resource.data.visibleTo == 'specific_roles' && 
+          getUserRoleInTeam(resource.data.teamId) in resource.data.roleIds));
+      
+      // Team members with permissions can create announcements
+      allow create: if isSignedIn() && 
+        isTeamMember(request.resource.data.teamId) &&
+        hasTeamPermission(request.resource.data.teamId, 'postAnnouncements');
+      
+      // Only announcement creator or team admin can update/delete
+      allow update, delete: if isSignedIn() && 
+        (resource.data.authorId == request.auth.uid || 
+         isTeamAdmin(resource.data.teamId));
+      
+      // Helper to get user's role in a team
+      function getUserRoleInTeam(teamId) {
+        return getTeamMembership(teamId).data.roleId;
+      }
+    }
+
+    // Team Calendar Events
+    match /teamCalendarEvents/{eventId} {
+      // Team members can read calendar events
+      allow read: if isSignedIn() && 
+        isTeamMember(resource.data.teamId) &&
+        hasTeamPermission(resource.data.teamId, 'viewCalendar');
+      
+      // Team members with permissions can create events
+      allow create: if isSignedIn() && 
+        isTeamMember(request.resource.data.teamId) &&
+        hasTeamPermission(request.resource.data.teamId, 'createEvents') &&
+        request.resource.data.createdBy == request.auth.uid;
+      
+      // Event creator, team admins, or members with edit permission can update/delete
+      allow update, delete: if isSignedIn() && 
+        (resource.data.createdBy == request.auth.uid || 
+         isTeamAdmin(resource.data.teamId) ||
+         hasTeamPermission(resource.data.teamId, 'editAllEvents'));
+    }
+
+    // Team Files
+    match /teamFiles/{fileId} {
+      // Team members with permission can read files
+      allow read: if isSignedIn() && 
+        isTeamMember(resource.data.teamId) &&
+        hasTeamPermission(resource.data.teamId, 'viewFiles');
+      
+      // Team members with permission can upload files
+      allow create: if isSignedIn() && 
+        isTeamMember(request.resource.data.teamId) &&
+        hasTeamPermission(request.resource.data.teamId, 'uploadFiles') &&
+        request.resource.data.createdBy == request.auth.uid;
+      
+      // File creator, team admins, or members with edit permission can update
+      allow update: if isSignedIn() && 
+        (resource.data.createdBy == request.auth.uid || 
+         isTeamAdmin(resource.data.teamId) ||
+         hasTeamPermission(resource.data.teamId, 'editFiles'));
+      
+      // Only team admins or members with delete permission can delete
+      allow delete: if isSignedIn() && 
+        (isTeamAdmin(resource.data.teamId) ||
+         hasTeamPermission(resource.data.teamId, 'deleteFiles'));
+    }
+
+    // Team Folders
+    match /teamFolders/{folderId} {
+      // Team members with permission can read folders
+      allow read: if isSignedIn() && 
+        isTeamMember(resource.data.teamId) &&
+        hasTeamPermission(resource.data.teamId, 'viewFiles');
+      
+      // Team members with permission can create folders
+      allow create: if isSignedIn() && 
+        isTeamMember(request.resource.data.teamId) &&
+        hasTeamPermission(request.resource.data.teamId, 'uploadFiles') &&
+        request.resource.data.createdBy == request.auth.uid;
+      
+      // Folder creator, team admins, or members with edit permission can update
+      allow update: if isSignedIn() && 
+        (resource.data.createdBy == request.auth.uid || 
+         isTeamAdmin(resource.data.teamId) ||
+         hasTeamPermission(resource.data.teamId, 'editFiles'));
+      
+      // Only team admins or members with delete permission can delete
+      allow delete: if isSignedIn() && 
+        (isTeamAdmin(resource.data.teamId) ||
+         hasTeamPermission(resource.data.teamId, 'deleteFiles'));
+    }
+
+    // Team Tasks
+    match /teamTasks/{taskId} {
+      // Team members with permission can read tasks
+      allow read: if isSignedIn() && 
+        isTeamMember(resource.data.teamId) &&
+        hasTeamPermission(resource.data.teamId, 'viewTasks');
+      
+      // Team members with permission can create tasks
+      allow create: if isSignedIn() && 
+        isTeamMember(request.resource.data.teamId) &&
+        hasTeamPermission(request.resource.data.teamId, 'createTasks') &&
+        request.resource.data.createdBy == request.auth.uid;
+      
+      // Task creator, assignees, team admins, or members with edit all permission can update
+      allow update: if isSignedIn() && 
+        (resource.data.createdBy == request.auth.uid || 
+         resource.data.assignees.hasAny([request.auth.uid]) ||
+         isTeamAdmin(resource.data.teamId) ||
+         hasTeamPermission(resource.data.teamId, 'editAllTasks'));
+      
+      // Only team admins or members with edit all permission can delete
+      allow delete: if isSignedIn() && 
+        (isTeamAdmin(resource.data.teamId) ||
+         hasTeamPermission(resource.data.teamId, 'editAllTasks'));
+    }
+
+    // Team Task Boards
+    match /taskBoards/{boardId} {
+      // Team members with permission can read task boards
+      allow read: if isSignedIn() && 
+        isTeamMember(resource.data.teamId) &&
+        hasTeamPermission(resource.data.teamId, 'viewTasks');
+      
+      // Team members with permission can create task boards
+      allow create: if isSignedIn() && 
+        isTeamMember(request.resource.data.teamId) &&
+        hasTeamPermission(request.resource.data.teamId, 'createTasks') &&
+        request.resource.data.createdBy == request.auth.uid;
+      
+      // Board creator, team admins, or members with manage permission can update/delete
+      allow update, delete: if isSignedIn() && 
+        (resource.data.createdBy == request.auth.uid || 
+         isTeamAdmin(resource.data.teamId) ||
+         hasTeamPermission(resource.data.teamId, 'editAllTasks'));
+    }
+
+    // Team Goals
+    match /teamGoals/{goalId} {
+      // Team members with permission can read goals
+      allow read: if isSignedIn() && 
+        isTeamMember(resource.data.teamId) &&
+        hasTeamPermission(resource.data.teamId, 'viewGoals');
+      
+      // Team members with permission can create goals
+      allow create: if isSignedIn() && 
+        isTeamMember(request.resource.data.teamId) &&
+        hasTeamPermission(request.resource.data.teamId, 'createGoals') &&
+        request.resource.data.createdBy == request.auth.uid;
+      
+      // Goal creator, goal owners, team admins, or members with edit permission can update
+      allow update: if isSignedIn() && 
+        (resource.data.createdBy == request.auth.uid || 
+         resource.data.owners.hasAny([request.auth.uid]) ||
+         isTeamAdmin(resource.data.teamId) ||
+         hasTeamPermission(resource.data.teamId, 'editGoals'));
+      
+      // Only team admins or members with edit goals permission can delete
+      allow delete: if isSignedIn() && 
+        (isTeamAdmin(resource.data.teamId) ||
+         hasTeamPermission(resource.data.teamId, 'editGoals'));
+    }
+
+    // Team Analytics
+    match /teamAnalytics/{analyticsId} {
+      // Team members with permission can read analytics
+      allow read: if isSignedIn() && 
+        isTeamMember(resource.data.teamId) &&
+        hasTeamPermission(resource.data.teamId, 'viewAnalytics');
+      
+      // Only team admins or analytics service accounts can write
+      allow write: if isSignedIn() && 
+        (isTeamAdmin(resource.data.teamId) ||
+         request.auth.token.analytics_service == true);
+    }
+
+    // Member Activity (for analytics)
+    match /memberActivity/{activityId} {
+      // Users can read their own activity, team admins can read all
+      allow read: if isSignedIn() && 
+        (resource.data.userId == request.auth.uid || 
+         isTeamAdmin(resource.data.teamId) ||
+         hasTeamPermission(resource.data.teamId, 'viewAnalytics'));
+      
+      // Only the user or analytics service accounts can write
+      allow write: if isSignedIn() && 
+        (request.resource.data.userId == request.auth.uid ||
+         request.auth.token.analytics_service == true);
+    }
+
+    // Team Onboarding
+    match /teamOnboarding/{onboardingId} {
+      // Team members can read onboarding processes
+      allow read: if isSignedIn() && 
+        isTeamMember(resource.data.teamId);
+      
+      // Only team admins can write onboarding processes
+      allow write: if isSignedIn() && 
+        isTeamAdmin(resource.data.teamId);
+    }
+
+    // Member Onboarding Progress
+    match /memberOnboardingProgress/{progressId} {
+      // Users can read their own progress, team admins and buddies can read all
+      allow read: if isSignedIn() && 
+        (resource.data.userId == request.auth.uid || 
+         isTeamAdmin(resource.data.teamId) ||
+         resource.data.buddyId == request.auth.uid);
+      
+      // Users can update their own progress, team admins and buddies can update all
+      allow update: if isSignedIn() && 
+        (resource.data.userId == request.auth.uid || 
+         isTeamAdmin(resource.data.teamId) ||
+         resource.data.buddyId == request.auth.uid);
+      
+      // Only team admins can create/delete progress records
+      allow create, delete: if isSignedIn() && 
+        isTeamAdmin(request.resource.data.teamId);
+    }
+  }
+}

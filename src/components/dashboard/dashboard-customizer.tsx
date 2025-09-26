@@ -17,6 +17,7 @@ import { UpcomingTasksWidget } from './task-widgets';
 import { CalendarEventsWidget } from './calendar-widget';
 import { QuickStatsWidget } from './quick-stats-widget';
 import { FavoritesWidget } from './favorites-widget';
+import { TeamOverviewWidget } from './team-overview-widget';
 import { AddWidgetDialog, WidgetTemplate } from './add-widget-dialog';
 import { SaveLayoutDialog } from './save-layout-dialog';
 import { DashboardSettingsDialog } from './dashboard-settings-dialog';
@@ -250,6 +251,13 @@ export function DashboardCustomizer({
             isMoving={isMoving}
             onRemove={handleRemoveWidget}
             onSizeChange={handleSizeChange}
+          />
+        );
+      case 'team':
+        return (
+          <TeamOverviewWidget
+            key={widget.id}
+            size={widget.size}
           />
         );
       default:

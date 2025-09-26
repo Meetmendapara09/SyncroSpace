@@ -50,9 +50,10 @@ describe('AiSuggestionCard', () => {
 
   it('handles successful suggestion generation', async () => {
     const mockSuggestion = {
-      channelName: 'Design Sprint',
-      channelDescription: 'Collaborative design sessions for rapid prototyping',
-      reason: 'Based on your role as Software Engineer, this channel would help with design collaboration',
+      suggestedChannels: [{
+        name: 'Design Sprint',
+        description: 'Collaborative design sessions for rapid prototyping',
+      }],
     };
     
     mockSuggestChannel.mockResolvedValue(mockSuggestion);
@@ -65,7 +66,7 @@ describe('AiSuggestionCard', () => {
     expect(screen.getByText('Generating...')).toBeInTheDocument();
     
     await waitFor(() => {
-      expect(screen.getByText('Design Sprint')).toBeInTheDocument();
+      expect(screen.getByText('#Design Sprint')).toBeInTheDocument();
       expect(screen.getByText('Collaborative design sessions for rapid prototyping')).toBeInTheDocument();
     });
   });
@@ -98,9 +99,10 @@ describe('AiSuggestionCard', () => {
 
   it('shows refresh button after successful suggestion', async () => {
     const mockSuggestion = {
-      channelName: 'Design Sprint',
-      channelDescription: 'Collaborative design sessions for rapid prototyping',
-      reason: 'Based on your role as Software Engineer, this channel would help with design collaboration',
+      suggestedChannels: [{
+        name: 'Design Sprint',
+        description: 'Collaborative design sessions for rapid prototyping',
+      }],
     };
     
     mockSuggestChannel.mockResolvedValue(mockSuggestion);

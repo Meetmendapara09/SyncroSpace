@@ -48,9 +48,11 @@ async function testGenerateAvatar() {
 async function testChatbot() {
     const result = await testFlow('chatbot', async () => {
         const result = await chat({
-            history: [],
-            message: 'What features does SyncroSpace offer?',
-            role: 'user'
+            messages: [{
+                role: 'user',
+                content: 'What features does SyncroSpace offer?',
+                timestamp: Date.now()
+            }]
         });
         return result;
     });
@@ -60,8 +62,8 @@ async function testChatbot() {
 async function testSuggestChannel() {
     const result = await testFlow('suggestChannel', async () => {
         const result = await suggestChannel({
-            userProfile: 'Software engineer with 5 years experience. Interested in AI and machine learning.',
-            userActivity: 'Recently viewed the development team spaces and documentation channels.'
+            userInterests: ['AI', 'machine learning', 'software development'],
+            existingChannels: ['general', 'development']
         });
         return result;
     });
@@ -73,8 +75,7 @@ async function testContactForm() {
         const result = await contact({
             name: 'Test User',
             email: 'test@example.com',
-            subject: 'Testing Contact Form',
-            message: 'This is a test message from the AI flow test suite.'
+            message: 'Testing Contact Form - This is a test message from the AI flow test suite.'
         });
         return result;
     });

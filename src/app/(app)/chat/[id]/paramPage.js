@@ -2,7 +2,5 @@
 // It's separate from the page component to avoid conflicts with 'use client'
 
 export function generateStaticParams() {
-  return [
-    { id: ['demo-1', 'demo-2', 'demo-3'] },
-  ];
+  return [];
 }

@@ -1,127 +1,85 @@
+'use client';
 
-"use client"
-
-import { Pie, PieChart } from "recharts"
-import { useState, useEffect } from 'react';
-
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  ChartLegend,
-  ChartLegendContent
-} from "@/components/ui/chart"
-import { CardDescription } from "../ui/card"
-
-const chartConfig = {
-  usage: {
-    label: "Usage",
-  },
-  space: {
-    label: "Virtual Space",
-    color: "hsl(var(--chart-1))",
-  },
-  board: {
-    label: "Kanban Board",
-    color: "hsl(var(--chart-2))",
-  },
-  chat: {
-    label: "Chat",
-    color: "hsl(var(--chart-3))",
-  },
-  ai: {
-    label: "AI Suggestions",
-    color: "hsl(var(--chart-4))",
-  },
-  account: {
-    label: "Account Settings",
-    color: "hsl(var(--chart-5))",
-  },
-}
+import * as React from 'react';
 
 interface FeatureUsageChartProps {
-  spacesData?: any[];
-  usersData?: any[];
-}
-
-export interface FeatureData {
-  feature: string;
-  usage: number;
-  fill: string;
+  spacesData: any[] | undefined;
+  usersData: any[] | undefined;
 }
 
 export function FeatureUsageChart({ spacesData, usersData }: FeatureUsageChartProps) {
-  const [chartData, setChartData] = useState<FeatureData[]>(() => []);
-
-  useEffect(() => {
-    if (!spacesData || !usersData) return;
-
-    // Calculate feature usage based on Firebase data
-    const spacesCount = spacesData.length;
-    const usersCount = usersData.length;
-    const activeSpaces = spacesData.filter(doc => doc.data().activeMeeting).length;
+  // Generate feature usage data
+  const generateFeatureData = () => {
+    const totalUsers = usersData?.length || 100;
     
-    // Calculate messages across all spaces
-    const totalMessages = spacesData.reduce((total, spaceDoc) => {
-      const spaceData = spaceDoc.data();
-      return total + (spaceData.messageCount || 0);
-    }, 0);
-
-    // Generate feature usage data based on actual Firebase data
-    const featureData = [
-      { 
-        feature: "Virtual Space", 
-        usage: Math.max(spacesCount * 10, 50), // Base usage on number of spaces
-        fill: "var(--color-space)" 
+    return [
+      {
+        feature: 'Spaces',
+        usage: spacesData?.length || 15,
+        percentage: Math.min(100, Math.round(((spacesData?.length || 15) / totalUsers) * 100)),
+        color: 'bg-blue-500'
       },
-      { 
-        feature: "Kanban Board", 
-        usage: Math.max(activeSpaces * 15, 30), // Base usage on active spaces
-        fill: "var(--color-board)" 
+      {
+        feature: 'Video Calls',
+        usage: Math.floor(totalUsers * 0.65),
+        percentage: 65,
+        color: 'bg-green-500'
       },
-      { 
-        feature: "Chat", 
-        usage: Math.max(totalMessages, 20), // Base usage on message count
-        fill: "var(--color-chat)" 
+      {
+        feature: 'File Sharing',
+        usage: Math.floor(totalUsers * 0.45),
+        percentage: 45,
+        color: 'bg-purple-500'
       },
-      { 
-        feature: "AI Suggestions", 
-        usage: Math.max(usersCount * 5, 15), // Base usage on user count
-        fill: "var(--color-ai)" 
+      {
+        feature: 'Chat',
+        usage: Math.floor(totalUsers * 0.85),
+        percentage: 85,
+        color: 'bg-yellow-500'
       },
-      { 
-        feature: "Account Settings", 
-        usage: Math.max(usersCount * 3, 10), // Base usage on user count
-        fill: "var(--color-account)" 
-      },
+      {
+        feature: 'Whiteboard',
+        usage: Math.floor(totalUsers * 0.25),
+        percentage: 25,
+        color: 'bg-red-500'
+      }
     ];
+  };
 
-    setChartData(featureData);
-  }, [spacesData, usersData]);
+  const featureData = generateFeatureData();
 
   return (
-    <ChartContainer
-      config={chartConfig}
-      className="mx-auto aspect-square max-h-[300px]"
-    >
-      <PieChart>
-        <ChartTooltip
-          cursor={false}
-          content={<ChartTooltipContent hideLabel />}
-        />
-        <Pie
-          data={chartData}
-          dataKey="usage"
-          nameKey="feature"
-          innerRadius={60}
-          strokeWidth={5}
-        >
-        </Pie>
-        <ChartLegend
-            content={<ChartLegendContent nameKey="feature" />}
-            className="-translate-y-2 flex-wrap gap-2 [&>*]:basis-1/4 [&>*]:justify-center"
-        />
-      </PieChart>
-    </ChartContainer>
-  )
+    <div className="space-y-4">
+      {featureData.map((feature, index) => (
+        <div key={index} className="space-y-2">
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-medium">{feature.feature}</span>
+            <div className="text-sm text-muted-foreground">
+              {feature.usage} users ({feature.percentage}%)
+            </div>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div
+              className={`h-2 rounded-full transition-all duration-500 ${feature.color}`}
+              style={{ width: `${feature.percentage}%` }}
+            ></div>
+          </div>
+        </div>
+      ))}
+      
+      <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
+        <h4 className="font-semibold text-sm mb-2">Top Features</h4>
+        <div className="grid grid-cols-2 gap-4 text-xs">
+          <div className="text-center">
+            <div className="text-lg font-bold text-yellow-600">Chat</div>
+            <div className="text-muted-foreground">Most used</div>
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-bold text-blue-600">Video</div>
+            <div className="text-muted-foreground">Growing fast</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }

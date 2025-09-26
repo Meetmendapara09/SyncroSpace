@@ -25,13 +25,13 @@ import { logUserActivity } from '@/lib/user-activity';
 import { sendPasswordResetEmail } from 'firebase/auth';
 
 interface Params {
-  params: {
+  params: Promise<{
     userId: string;
-  }
+  }>
 }
 
-export default function UserDetailPage({ params }: Params) {
-  const { userId } = params;
+export default async function UserDetailPage({ params }: Params) {
+  const { userId } = await params;
   const [currentUser] = useAuthState(auth);
   const userRef = doc(db, 'users', userId);
   const [userData, loading, error] = useDocument(userRef);

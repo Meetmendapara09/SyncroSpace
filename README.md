@@ -12,6 +12,9 @@ Welcome to SyncroSpace, an all-in-one virtual collaboration platform designed fo
 -   **Team & Company Hubs**: A centralized place for team calendars, company stories, and announcements.
 -   **SyncroSpace Connect**: Collaborate securely with external partners in dedicated channels.
 -   **🤖 BigQuery AI Integration**: Advanced analytics and insights powered by Google's generative AI.
+-   **📊 Team Analytics System**: Track and analyze team performance with customizable metrics and dashboards.
+-   **🎯 Team Goals & OKRs**: Set, monitor, and achieve team objectives with integrated key results tracking.
+-   **👋 Onboarding Workflows**: Create customized onboarding experiences for new team members.
 
 ## 🚀 Getting Started
 
@@ -45,6 +48,43 @@ You'll need to have [Node.js](https://nodejs.org/en/) (v20 or later) installed o
     NEXT_PUBLIC_FIREBASE_APP_ID="YOUR_APP_ID"
     ```
     
+## 🔐 Team Management Features
+
+SyncroSpace offers comprehensive team management capabilities:
+
+### Core Team Features
+- **Team Creation & Management**: Create and manage teams with customizable settings
+- **Member Roles & Permissions**: Define roles with granular permission controls
+- **Team Resources**: Manage team resources with allocation tracking
+
+### Team Communication
+- **Channels**: Create topic-based communication channels
+- **Direct Messaging**: Private messaging between team members
+- **File Sharing**: Secure file sharing within the team
+
+### Task Management
+- **Task Creation & Assignment**: Create, assign, and track tasks
+- **Task Comments**: Collaborate on tasks with threaded comments
+- **Task Checklists**: Break down tasks into actionable items
+- **Task Dependencies**: Manage relationships between tasks
+
+### Goal Tracking
+- **OKR Framework**: Set Objectives and Key Results for the team
+- **Progress Tracking**: Automatic calculation of goal completion percentages
+- **Goal Alignment**: Link goals to parent objectives
+
+### Team Analytics
+- **Activity Metrics**: Track team activity and engagement
+- **Performance Metrics**: Measure team performance against goals
+- **Resource Utilization**: Monitor resource allocation and usage
+- **Custom Reports**: Generate custom analytics reports
+
+### Onboarding System
+- **Custom Workflows**: Create personalized onboarding journeys
+- **Step-by-Step Guidance**: Guide new members through onboarding steps
+- **Resource Links**: Provide relevant resources for each step
+- **Progress Tracking**: Monitor onboarding completion
+
 ### Running the Development Server
 
 Once you've installed the dependencies, you can run the development server:

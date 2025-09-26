@@ -31,11 +31,10 @@ export function AiSuggestionCard() {
     setError(null);
     try {
       // Use dynamic data for the current user.
-      const userProfile = `Name: ${userData.name}, Job Title: ${userData.jobTitle || 'Not specified'}`;
-      // This could be enhanced by fetching actual recent activity.
-      const userActivity = "Recently viewed the dashboard and the board page.";
+      const userInterests = ['team collaboration', 'project management', userData.jobTitle || 'software development'];
+      const existingChannels = ['general', 'announcements']; // This could be fetched from actual data
       
-      const result = await suggestChannel({ userProfile, userActivity });
+      const result = await suggestChannel({ userInterests, existingChannels });
       setSuggestion(result);
     } catch (e) {
       console.error(e);
@@ -67,14 +66,13 @@ export function AiSuggestionCard() {
           </div>
         ) : suggestion ? (
           <div className="space-y-4">
-            <h3 className="font-semibold text-lg text-primary">#{suggestion.channelName}</h3>
-            <p className="text-sm text-muted-foreground">{suggestion.channelDescription}</p>
+            <h3 className="font-semibold text-lg text-primary">#{suggestion.suggestedChannels[0]?.name}</h3>
+            <p className="text-sm text-muted-foreground">{suggestion.suggestedChannels[0]?.description}</p>
             <div>
               <p className="text-xs font-semibold text-foreground flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-primary" />
-                Why you should join:
+                Suggested channel based on your interests
               </p>
-              <p className="text-sm text-muted-foreground italic pl-6">{suggestion.reason}</p>
             </div>
           </div>
         ) : (

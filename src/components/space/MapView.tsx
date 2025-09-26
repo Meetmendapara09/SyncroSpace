@@ -148,36 +148,54 @@ class MapScene extends Phaser.Scene {
     const prevX = this.avatar.x;
     const prevY = this.avatar.y;
     
-    // Handle movement
+    // Handle movement with diagonal movement normalization
+    let velocityX = 0;
+    let velocityY = 0;
+    
     if (this.cursors.left.isDown) {
-      this.avatar.setVelocityX(-speed);
+      velocityX = -speed;
     } else if (this.cursors.right.isDown) {
-      this.avatar.setVelocityX(speed);
+      velocityX = speed;
     }
     
     if (this.cursors.up.isDown) {
-      this.avatar.setVelocityY(-speed);
+      velocityY = -speed;
     } else if (this.cursors.down.isDown) {
-      this.avatar.setVelocityY(speed);
+      velocityY = speed;
     }
     
-    // Don't update position unless it actually changed
-    if (prevX !== this.avatar.x || prevY !== this.avatar.y) {
-      // Throttle position updates to reduce Firestore writes
-      // Only send updates every few frames
+    // Normalize diagonal movement
+    if (velocityX !== 0 && velocityY !== 0) {
+      velocityX *= 0.707; // Math.sqrt(2) / 2
+      velocityY *= 0.707;
+    }
+    
+    this.avatar.setVelocity(velocityX, velocityY);
+    
+    // Only check position changes if there was movement input
+    if (velocityX !== 0 || velocityY !== 0) {
+      // Throttle position updates to reduce Firestore writes - increased throttle time
       const now = Date.now();
-      if (!this._lastPositionUpdate || now - this._lastPositionUpdate > 200) {
+      if (!this._lastPositionUpdate || now - this._lastPositionUpdate > 500) { // Increased from 200ms to 500ms
         this._lastPositionUpdate = now;
         
-        // Notify position change if callback is provided
-        if (this.onPositionChange) {
-          this.onPositionChange(this.avatar.x, this.avatar.y);
+        // Only send update if position actually changed significantly
+        const deltaX = Math.abs(this.avatar.x - prevX);
+        const deltaY = Math.abs(this.avatar.y - prevY);
+        
+        if (deltaX > 2 || deltaY > 2) { // Only update if moved more than 2 pixels
+          // Notify position change if callback is provided
+          if (this.onPositionChange) {
+            this.onPositionChange(Math.round(this.avatar.x), Math.round(this.avatar.y));
+          }
         }
       }
     }
     
-    // Update other players' positions and labels
-    this.updateOtherPlayers();
+    // Update other players' positions with reduced frequency
+    if (this.time.now % 3 === 0) { // Update every 3rd frame
+      this.updateOtherPlayers();
+    }
   }
   
   // Add a new player to the map
@@ -237,16 +255,22 @@ class MapScene extends Phaser.Scene {
   // Interpolate other players' positions and update labels
   updateOtherPlayers(): void {
     this.otherPlayers.forEach(({ sprite, label, target }) => {
-      // Interpolate position for smooth movement
-      const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+      // Only update if there's a significant difference
+      const deltaX = Math.abs(sprite.x - target.x);
+      const deltaY = Math.abs(sprite.y - target.y);
       
-      // Apply interpolation with a smooth factor
-      sprite.x = lerp(sprite.x, target.x, 0.1);
-      sprite.y = lerp(sprite.y, target.y, 0.1);
-      
-      // Update label position to follow the sprite
-      label.x = sprite.x;
-      label.y = sprite.y - GRID_SIZE / 1.5;
+      if (deltaX > 1 || deltaY > 1) {
+        // Interpolate position for smooth movement with faster lerp for responsiveness
+        const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+        
+        // Apply interpolation with a smooth factor
+        sprite.x = lerp(sprite.x, target.x, 0.15); // Increased from 0.1 for more responsive movement
+        sprite.y = lerp(sprite.y, target.y, 0.15);
+        
+        // Update label position to follow the sprite
+        label.x = sprite.x;
+        label.y = sprite.y - GRID_SIZE / 1.5;
+      }
     });
   }
 }
@@ -352,7 +376,17 @@ const MapView: React.FC<MapViewProps> = ({
         },
         render: {
           pixelArt: true,
-          antialias: false
+          antialias: false,
+          powerPreference: 'high-performance', // Request high-performance GPU
+          batchSize: 2000, // Increase batch size for better performance
+          maxTextures: 16  // Optimize texture usage
+        },
+        fps: {
+          target: 60,
+          forceSetTimeOut: true // Use setTimeout instead of requestAnimationFrame for better performance
+        },
+        audio: {
+          disableWebAudio: true // Disable audio for better performance
         }
       };
       

@@ -1,0 +1,48 @@
+{
+  "name": "syncro-space-server",
+  "version": "1.0.0",
+  "description": "Colyseus multiplayer server for SyncroSpace virtual office",
+  "main": "build/index.js",
+  "scripts": {
+    "start": "npm run build && node build/index.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "build": "tsc",
+    "test": "mocha --require ts-node/register test/**/*_test.ts --exit --timeout 15000",
+    "loadtest": "colyseus-loadtest loadtest/example.ts --room PUBLIC_ROOM --numClients 2",
+    "clean": "rimraf build"
+  },
+  "keywords": [
+    "colyseus",
+    "multiplayer",
+    "websocket",
+    "webrtc",
+    "virtual-office",
+    "typescript",
+    "peerjs"
+  ],
+  "author": "SyncroSpace Team",
+  "license": "MIT",
+  "dependencies": {
+    "@colyseus/monitor": "^0.15.0",
+    "@colyseus/schema": "^2.0.0",
+    "colyseus": "^0.15.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "@colyseus/loadtest": "^0.15.0",
+    "@colyseus/testing": "^0.15.0",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "^20.11.19",
+    "mocha": "^10.3.0",
+    "rimraf": "^5.0.5",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

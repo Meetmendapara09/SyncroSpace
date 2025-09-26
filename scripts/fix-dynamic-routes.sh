@@ -61,7 +61,7 @@ for route_path in "${!DYNAMIC_ROUTES[@]}"; do
   
   case "$route_param" in
     "id")
-      sample_values="['demo-1', 'demo-2', 'demo-3']"
+      sample_values="[]"
       ;;
     "userId")
       sample_values="['user1', 'user2', 'user3', 'user4', 'user5']"
