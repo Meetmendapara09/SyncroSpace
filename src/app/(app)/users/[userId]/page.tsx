@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useDocument } from 'react-firebase-hooks/firestore';
 import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
@@ -30,10 +30,10 @@ interface Params {
   }>
 }
 
-export default async function UserDetailPage({ params }: Params) {
-  const { userId } = await params;
+export default function UserDetailPage({ params }: Params) {
+  const [userId, setUserId] = useState<string>('');
   const [currentUser] = useAuthState(auth);
-  const userRef = doc(db, 'users', userId);
+  const userRef = userId ? doc(db, 'users', userId) : null;
   const [userData, loading, error] = useDocument(userRef);
   const [currentUserData] = useDocument(currentUser ? doc(db, 'users', currentUser.uid) : null);
   const router = useRouter();
@@ -43,16 +43,23 @@ export default async function UserDetailPage({ params }: Params) {
   const [bio, setBio] = useState<string>('');
   const [teams, setTeams] = useState<string[]>([]);
   const [teamInput, setTeamInput] = useState<string>('');
+
+  // Get userId from params
+  React.useEffect(() => {
+    params.then(({ userId: paramUserId }) => {
+      setUserId(paramUserId);
+    });
+  }, [params]);
   
   // Initialize form data once user data is loaded
-  useState(() => {
+  React.useEffect(() => {
     if (userData?.exists()) {
       const data = userData.data();
       setName(data.name || '');
       setBio(data.bio || '');
       setTeams(data.teams || []);
     }
-  });
+  }, [userData]);
   
   const isAdmin = currentUserData?.data()?.role === 'admin';
   
@@ -91,15 +98,17 @@ export default async function UserDetailPage({ params }: Params) {
   const user = userData.data();
   
   const handleUpdateProfile = async () => {
+    if (!userRef) return;
+
     try {
       await updateDoc(userRef, {
         name,
         bio,
         teams
       });
-      
+
       logUserActivity(userId, 'profile_updated', { updatedBy: currentUser?.uid });
-      
+
       toast({
         title: 'Profile Updated',
         description: 'The user profile has been successfully updated.',

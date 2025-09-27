@@ -15,6 +15,7 @@
     "dev:all": "concurrently --names=\"MAIN,CAVE_CLIENT,CAVE_SERVER\" --prefix-colors=\"cyan,magenta,yellow\" \"npm run dev:main\" \"npm run dev:cave-client\" \"npm run dev:cave-server\"",
     "build": "npm run build:main && npm run build:cave-client && npm run build:cave-server",
     "build:main": "NODE_OPTIONS='--max_old_space_size=8192' NEXT_TELEMETRY_DISABLED=1 next build",
+    "build:vercel": "NODE_OPTIONS='--max_old_space_size=8192' NEXT_TELEMETRY_DISABLED=1 next build",
     "build:cave-client": "cd space/client && npm run build",
     "build:cave-server": "cd space/server && npm run build",
     "start": "concurrently --names=\"MAIN,CAVE_CLIENT,CAVE_SERVER\" --prefix-colors=\"cyan,magenta,yellow\" \"npm run start:main\" \"npm run start:cave-client\" \"npm run start:cave-server\"",

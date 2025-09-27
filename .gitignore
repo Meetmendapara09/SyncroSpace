@@ -14,6 +14,9 @@
 # testing
 /coverage
 
+
+vercel.deployment.log
+
 # next.js
 /.next/
 /out/
