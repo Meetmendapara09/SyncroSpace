@@ -8,14 +8,17 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true, // Temporarily ignore ESLint errors
   },
+  // Add webpack configuration to handle Node.js modules
+  transpilePackages: ['@google-cloud/bigquery'],
   experimental: {
     optimizeCss: true,
     optimizePackageImports: [
-      'lucide-react', 
+      'lucide-react',
       '@radix-ui/react-icons',
       '@radix-ui/react-dropdown-menu',
       '@radix-ui/react-dialog'
-    ]
+    ],
+    serverComponentsExternalPackages: ['@google-cloud/bigquery'],
   },
   webpack: (config, { dev, isServer }) => {
     if (!dev && !isServer) {
@@ -50,7 +53,25 @@ const nextConfig = {
         }
       }
     }
-    return config
+    
+    // Handle Node.js modules in browser environment
+    if (!isServer) {
+      // Replace Node.js modules with empty modules
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        child_process: false,
+        net: false,
+        tls: false,
+        http2: false,
+        zlib: false,
+        path: false,
+        os: false,
+        crypto: false,
+      };
+    }
+    
+    return config;
   }
 }
 

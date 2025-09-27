@@ -97,6 +97,7 @@ export function VirtualSpace({ participants: initialParticipants, spaceId }: { p
   const [isTogetherMode, setIsTogetherMode] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isInCall, setIsInCall] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const roomHandlesRef = useRef<RoomHandles | null>(null);
   // Holds a dummy (black) video track we may use to keep the sender alive while the real camera is off.
   const offVideoTrackRef = useRef<MediaStreamTrack | null>(null);
@@ -139,43 +140,129 @@ export function VirtualSpace({ participants: initialParticipants, spaceId }: { p
 
 
   useEffect(() => {
-    let stream: MediaStream;
+    let stream: MediaStream | undefined;
+    let isMounted = true;
+    
     const initMedia = async () => {
+      if (!isMounted) return;
+      
       try {
-        stream = await startLocalMedia({ video: true, audio: true });
+        // Check if browser is supported
+        if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          console.error('Browser does not support getUserMedia API');
+          setHasCameraPermission(false);
+          toast({ 
+            variant: 'destructive', 
+            title: 'Browser not supported', 
+            description: 'Your browser does not support video calls. Please use Chrome, Firefox, or Edge.' 
+          });
+          return;
+        }
+        
+        // Try to access media devices with fallbacks
+        try {
+          stream = await startLocalMedia({ video: true, audio: true });
+        } catch (err) {
+          console.warn('Could not access both camera and mic, trying audio only', err);
+          try {
+            stream = await startLocalMedia({ video: false, audio: true });
+            toast({ 
+              title: 'Video disabled', 
+              description: 'Camera access was denied. Audio-only mode enabled.' 
+            });
+          } catch (audioErr) {
+            console.error('Could not access audio either', audioErr);
+            toast({ 
+              variant: 'destructive', 
+              title: 'Media access denied', 
+              description: 'Please enable camera or mic access in browser settings.' 
+            });
+            return;
+          }
+        }
+        
+        if (!isMounted) {
+          stream.getTracks().forEach(track => track.stop());
+          return;
+        }
+        
         setLocalStream(stream);
         setHasCameraPermission(true);
         if (videoRef.current) videoRef.current.srcObject = stream;
       } catch (error) {
         console.error('Error accessing camera:', error);
         setHasCameraPermission(false);
-        toast({ variant: 'destructive', title: 'Camera Access Denied', description: 'Please enable camera and mic in browser settings.' });
+        toast({ 
+          variant: 'destructive', 
+          title: 'Camera Access Error', 
+          description: 'Please enable camera and mic in browser settings.' 
+        });
       }
     };
-    initMedia();
+    
+    // Only try to initialize media if we're in a browser environment
+    if (typeof window !== 'undefined') {
+      initMedia();
+    }
+    
     return () => {
+      isMounted = false;
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
-    }
+    };
   }, [toast]);
 
   const startOrJoinCall = async () => {
     if (!localStream) {
-      toast({ variant: 'destructive', title: 'Media not ready' });
+      toast({ variant: 'destructive', title: 'Media not ready', description: 'Please allow camera/microphone access first.' });
       return;
     }
+    
+    // Set a loading state
+    setIsLoading(true);
+    
     try {
-      const roomId = 'default';
+      const roomId = `space-${spaceId}`;
       const roomPath = doc(db, `spaces/${spaceId}/rooms/${roomId}`);
-      const snap = await getDoc(roomPath);
-      let handles: RoomHandles;
-      if (snap.exists()) {
-        handles = await joinRoom(spaceId, roomId, localStream);
-      } else {
-        handles = await createRoom(spaceId, roomId, localStream);
+      
+      // Check if room exists
+      let snap;
+      try {
+        snap = await getDoc(roomPath);
+      } catch (error) {
+        console.error('Error checking if room exists:', error);
+        toast({ 
+          variant: 'destructive', 
+          title: 'Connection Error', 
+          description: 'Could not connect to the server. Please check your internet connection.' 
+        });
+        setIsLoading(false);
+        return;
       }
-      roomHandlesRef.current = handles;
+      
+      let handles: RoomHandles;
+      
+      try {
+        if (snap.exists()) {
+          console.log('Joining existing room');
+          handles = await joinRoom(spaceId, roomId, localStream);
+        } else {
+          console.log('Creating new room');
+          handles = await createRoom(spaceId, roomId, localStream);
+        }
+        roomHandlesRef.current = handles;
+      } catch (error) {
+        console.error('Error creating/joining room:', error);
+        toast({ 
+          variant: 'destructive', 
+          title: 'Call Failed', 
+          description: 'Could not establish the call. Please try again.' 
+        });
+        setIsLoading(false);
+        return;
+      }
+      
       // Get first remote stream if available
       const firstRemoteStream = Object.values(handles.remoteStreams)[0];
       if (firstRemoteStream) {

@@ -1,0 +1,213 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "users": {
+      "$uid": {
+        ".read": "auth !== null",
+        ".write": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin'",
+        "status": {
+          ".read": "auth !== null",
+          ".write": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin'"
+        },
+        "profile": {
+          ".read": "auth !== null",
+          ".write": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin'"
+        },
+        "settings": {
+          ".read": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin'",
+          ".write": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin'"
+        },
+        "presence": {
+          ".read": "auth !== null",
+          ".write": "$uid === auth.uid",
+          "lastActive": {
+            ".validate": "newData.isNumber() && newData.val() <= now"
+          },
+          "isOnline": {
+            ".validate": "newData.isBoolean()"
+          },
+          "currentRoom": {
+            ".validate": "newData.isString()"
+          },
+          "position": {
+            ".validate": "newData.hasChildren(['x', 'y'])"
+          }
+        },
+        "notifications": {
+          ".read": "$uid === auth.uid",
+          ".write": "auth !== null",
+          "$notificationId": {
+            ".validate": "newData.hasChildren(['type', 'message', 'timestamp'])",
+            "timestamp": {
+              ".validate": "newData.isNumber() && newData.val() <= now"
+            },
+            "isRead": {
+              ".validate": "newData.isBoolean()"
+            },
+            "from": {
+              ".validate": "auth !== null && root.child('users').child(newData.val()).exists()"
+            }
+          }
+        }
+      }
+    },
+    "rooms": {
+      ".read": "auth !== null",
+      "$roomId": {
+        ".read": "auth !== null",
+        ".write": "auth !== null && (data.child('members').child(auth.uid).exists() || !data.exists() || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        "settings": {
+          ".read": "auth !== null",
+          ".write": "auth !== null && (data.parent().child('createdBy').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')"
+        },
+        "members": {
+          ".read": "auth !== null",
+          ".write": "auth !== null",
+          "$memberId": {
+            ".read": "auth !== null",
+            ".write": "auth !== null && ($memberId === auth.uid || data.parent().parent().child('createdBy').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')"
+          }
+        },
+        "messages": {
+          ".read": "auth !== null && data.parent().child('members').child(auth.uid).exists()",
+          "global": {
+            ".read": "auth !== null && data.parent().parent().child('members').child(auth.uid).exists()",
+            ".write": "auth !== null && data.parent().parent().child('members').child(auth.uid).exists()",
+            "$messageId": {
+              ".validate": "newData.hasChildren(['userId', 'username', 'message', 'timestamp'])",
+              "userId": {
+                ".validate": "newData.val() === auth.uid"
+              },
+              "timestamp": {
+                ".validate": "newData.isNumber() && newData.val() <= now"
+              },
+              "message": {
+                ".validate": "newData.isString() && newData.val().length <= 1000"
+              },
+              "type": {
+                ".validate": "newData.val() === 'global'"
+              }
+            }
+          },
+          "proximity": {
+            ".read": "auth !== null && data.parent().parent().child('members').child(auth.uid).exists()",
+            ".write": "auth !== null && data.parent().parent().child('members').child(auth.uid).exists()",
+            "$messageId": {
+              ".validate": "newData.hasChildren(['userId', 'username', 'message', 'timestamp', 'position'])",
+              "userId": {
+                ".validate": "newData.val() === auth.uid"
+              },
+              "timestamp": {
+                ".validate": "newData.isNumber() && newData.val() <= now"
+              },
+              "message": {
+                ".validate": "newData.isString() && newData.val().length <= 1000"
+              },
+              "type": {
+                ".validate": "newData.val() === 'office'"
+              },
+              "position": {
+                ".validate": "newData.hasChildren(['x', 'y'])"
+              }
+            }
+          }
+        },
+        "zoneActivity": {
+          ".read": "auth !== null && data.parent().child('members').child(auth.uid).exists()",
+          ".write": "auth !== null && data.parent().child('members').child(auth.uid).exists()",
+          "$zoneId": {
+            ".read": "auth !== null && data.parent().parent().child('members').child(auth.uid).exists()",
+            ".write": "auth !== null && data.parent().parent().child('members').child(auth.uid).exists()",
+            "activeUsers": {
+              "$userId": {
+                ".validate": "$userId === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin'"
+              }
+            },
+            "settings": {
+              ".read": "auth !== null",
+              ".write": "auth !== null && (data.parent().parent().parent().child('createdBy').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')"
+            }
+          }
+        },
+        "userPositions": {
+          ".read": "auth !== null && data.parent().child('members').child(auth.uid).exists()",
+          "$userId": {
+            ".write": "auth !== null && $userId === auth.uid",
+            ".validate": "newData.hasChildren(['x', 'y', 'lastUpdated'])",
+            "lastUpdated": {
+              ".validate": "newData.isNumber() && newData.val() <= now"
+            }
+          }
+        },
+        "activeCharacters": {
+          ".read": "auth !== null && data.parent().child('members').child(auth.uid).exists()",
+          "$userId": {
+            ".write": "auth !== null && $userId === auth.uid",
+            ".validate": "newData.isString()"
+          }
+        }
+      }
+    },
+    "publicRooms": {
+      ".read": "auth !== null",
+      ".write": "auth !== null && (root.child('users').child(auth.uid).child('role').val() === 'admin')",
+      "$roomId": {
+        ".read": "auth !== null",
+        ".write": "auth !== null && (root.child('rooms').child($roomId).child('createdBy').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')"
+      }
+    },
+    "rtcSignaling": {
+      "$sessionId": {
+        ".read": "auth !== null && (data.child('participants').child(auth.uid).exists() || !data.exists())",
+        ".write": "auth !== null",
+        "offers": {
+          "$offerId": {
+            ".read": "auth !== null && (data.parent().parent().child('participants').child(auth.uid).exists() || !data.parent().parent().exists())",
+            ".write": "auth !== null"
+          }
+        },
+        "answers": {
+          "$answerId": {
+            ".read": "auth !== null && data.parent().parent().child('participants').child(auth.uid).exists()",
+            ".write": "auth !== null"
+          }
+        },
+        "candidates": {
+          "$userId": {
+            ".read": "auth !== null && data.parent().parent().child('participants').child(auth.uid).exists()",
+            ".write": "auth !== null && $userId === auth.uid"
+          }
+        },
+        "participants": {
+          ".read": "auth !== null",
+          ".write": "auth !== null",
+          "$userId": {
+            ".read": "auth !== null",
+            ".write": "auth !== null && $userId === auth.uid"
+          }
+        }
+      }
+    },
+    "chatMetrics": {
+      ".read": "root.child('users').child(auth.uid).child('role').val() === 'admin'",
+      "$roomId": {
+        ".write": "auth !== null && root.child('rooms').child($roomId).child('members').child(auth.uid).exists()",
+        "messageCount": {
+          ".validate": "newData.isNumber() && (!data.exists() || newData.val() === data.val() + 1)"
+        },
+        "lastActive": {
+          ".validate": "newData.isNumber() && newData.val() <= now"
+        },
+        "activeUsers": {
+          "$userId": {
+            ".validate": "$userId === auth.uid",
+            "lastMessage": {
+              ".validate": "newData.isNumber() && newData.val() <= now"
+            }
+          }
+        }
+      }
+    }
+  }
+}

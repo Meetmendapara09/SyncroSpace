@@ -1,0 +1,114 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "users": {
+      "$uid": {
+        ".read": "auth !== null",
+        ".write": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin'",
+        "status": {
+          ".read": "auth !== null",
+          ".write": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin'"
+        },
+        "profile": {
+          ".read": "auth !== null",
+          ".write": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin'"
+        },
+        "settings": {
+          ".read": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin'",
+          ".write": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin'"
+        }
+      }
+    },
+    "rooms": {
+      ".read": "auth !== null",
+      "$roomId": {
+        ".read": "auth !== null",
+        ".write": "auth !== null && (data.child('members').child(auth.uid).exists() || !data.exists() || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        "settings": {
+          ".read": "auth !== null",
+          ".write": "auth !== null && (data.parent().child('createdBy').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')"
+        },
+        "members": {
+          ".read": "auth !== null",
+          ".write": "auth !== null",
+          "$memberId": {
+            ".read": "auth !== null",
+            ".write": "auth !== null && ($memberId === auth.uid || data.parent().parent().child('createdBy').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')"
+          }
+        },
+        "messages": {
+          ".read": "auth !== null && data.parent().child('members').child(auth.uid).exists()",
+          "global": {
+            ".read": "auth !== null && data.parent().parent().child('members').child(auth.uid).exists()",
+            ".write": "auth !== null && data.parent().parent().child('members').child(auth.uid).exists()",
+            "$messageId": {
+              ".validate": "newData.hasChildren(['userId', 'username', 'message', 'timestamp'])",
+              "userId": {
+                ".validate": "newData.val() === auth.uid"
+              }
+            }
+          },
+          "proximity": {
+            ".read": "auth !== null && data.parent().parent().child('members').child(auth.uid).exists()",
+            ".write": "auth !== null && data.parent().parent().child('members').child(auth.uid).exists()",
+            "$messageId": {
+              ".validate": "newData.hasChildren(['userId', 'username', 'message', 'timestamp'])",
+              "userId": {
+                ".validate": "newData.val() === auth.uid"
+              }
+            }
+          }
+        },
+        "zoneActivity": {
+          ".read": "auth !== null && data.parent().child('members').child(auth.uid).exists()",
+          ".write": "auth !== null && data.parent().child('members').child(auth.uid).exists()",
+          "$zoneId": {
+            ".read": "auth !== null && data.parent().parent().child('members').child(auth.uid).exists()",
+            ".write": "auth !== null && data.parent().parent().child('members').child(auth.uid).exists()"
+          }
+        }
+      }
+    },
+    "publicRooms": {
+      ".read": "auth !== null",
+      ".write": "auth !== null && (root.child('users').child(auth.uid).child('role').val() === 'admin')",
+      "$roomId": {
+        ".read": "auth !== null",
+        ".write": "auth !== null && (root.child('rooms').child($roomId).child('createdBy').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')"
+      }
+    },
+    "rtcSignaling": {
+      "$sessionId": {
+        ".read": "auth !== null && (data.child('participants').child(auth.uid).exists() || !data.exists())",
+        ".write": "auth !== null",
+        "offers": {
+          "$offerId": {
+            ".read": "auth !== null && (data.parent().parent().child('participants').child(auth.uid).exists() || !data.parent().parent().exists())",
+            ".write": "auth !== null"
+          }
+        },
+        "answers": {
+          "$answerId": {
+            ".read": "auth !== null && data.parent().parent().child('participants').child(auth.uid).exists()",
+            ".write": "auth !== null"
+          }
+        },
+        "candidates": {
+          "$userId": {
+            ".read": "auth !== null && data.parent().parent().child('participants').child(auth.uid).exists()",
+            ".write": "auth !== null && $userId === auth.uid"
+          }
+        },
+        "participants": {
+          ".read": "auth !== null",
+          ".write": "auth !== null",
+          "$userId": {
+            ".read": "auth !== null",
+            ".write": "auth !== null && $userId === auth.uid"
+          }
+        }
+      }
+    }
+  }
+}

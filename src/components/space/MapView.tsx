@@ -43,8 +43,21 @@ class MapScene extends Phaser.Scene {
 
   preload(): void {
     try {
+      // Ensure mapData is valid before proceeding
+      if (!mapData || !mapData.layers || !Array.isArray(mapData.layers)) {
+        console.error('Map data is invalid or missing', mapData);
+        this.onError?.('Invalid map data format');
+        return;
+      }
+      
       // Load the map JSON directly from the imported data
-      this.cache.json.add('map', mapData);
+      try {
+        this.cache.json.add('map', mapData);
+      } catch (jsonError) {
+        console.error('Failed to add map JSON to cache:', jsonError);
+        this.onError?.('Failed to initialize map data');
+        return;
+      }
       
       // Set up error handler for critical errors
       this.load.on('loaderror', (fileObj: any) => {
@@ -57,10 +70,21 @@ class MapScene extends Phaser.Scene {
       });
       
       // Use our enhanced asset preloader with fallback support
-      preloadMapAssets(this);
+      try {
+        preloadMapAssets(this);
+      } catch (assetError) {
+        console.error('Error in asset preloader:', assetError);
+        // Continue even if some assets fail to load
+      }
       
-      // Load avatar image
-      this.load.image('avatar', AVATAR_IMG);
+      // Load avatar image with fallback
+      try {
+        this.load.image('avatar', AVATAR_IMG);
+      } catch (avatarError) {
+        console.error('Failed to load avatar image:', avatarError);
+        // Try loading a fallback avatar
+        this.load.image('avatar', '/fallback-avatars/default.png');
+      }
       
       console.log('Started loading all assets');
     } catch (error) {
@@ -345,8 +369,15 @@ const MapView: React.FC<MapViewProps> = ({
   useEffect(() => {
     if (typeof window === 'undefined' || !phaserRef.current) return;
     
+    let game: Phaser.Game | null = null;
+    
     try {
       setIsLoading(true);
+      
+      // Check if Phaser is available
+      if (typeof Phaser === 'undefined') {
+        throw new Error('Phaser library not available');
+      }
       
       // Create the scene with our config
       const mapScene = new MapScene({
@@ -362,6 +393,7 @@ const MapView: React.FC<MapViewProps> = ({
         width: '100%',
         height: '100%',
         parent: phaserRef.current,
+        backgroundColor: '#f0f0f0', // Light background as fallback
         physics: {
           default: 'arcade',
           arcade: { 
@@ -373,6 +405,15 @@ const MapView: React.FC<MapViewProps> = ({
         scale: {
           mode: Phaser.Scale.RESIZE,
           autoCenter: Phaser.Scale.CENTER_BOTH
+        },
+        // Add error handling for WebGL context issues
+        callbacks: {
+          preBoot: () => {
+            console.log('Phaser pre-boot');
+          },
+          postBoot: () => {
+            setIsLoading(false);
+          }
         },
         render: {
           pixelArt: true,
@@ -390,9 +431,28 @@ const MapView: React.FC<MapViewProps> = ({
         }
       };
       
-      // Create game instance
-      const game = new Phaser.Game(config);
-      gameInstanceRef.current = game;
+      try {
+        // Create game instance with additional error handling
+        game = new Phaser.Game(config);
+        gameInstanceRef.current = game;
+        
+        // Monitor for WebGL errors
+        if (game.renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer) {
+          const gl = game.renderer.gl;
+          
+          // Check for WebGL context loss
+          phaserRef.current?.addEventListener('webglcontextlost', (e) => {
+            e.preventDefault();
+            console.error('WebGL context lost');
+            handleSceneError('WebGL context lost. Please refresh the page.');
+          });
+        }
+      } catch (initError) {
+        console.error('Error creating Phaser game:', initError);
+        handleSceneError('Failed to initialize the map view. Please refresh the page.');
+        setIsLoading(false);
+        return () => {}; // No cleanup needed if initialization failed
+      }
       
       // Set loading to false after a delay to ensure scene is loaded
       const timer = setTimeout(() => {
@@ -401,12 +461,25 @@ const MapView: React.FC<MapViewProps> = ({
       
       return () => {
         clearTimeout(timer);
-        game.destroy(true);
+        try {
+          if (game && game.isBooted) {
+            // Check if game has a valid renderer before destroying
+            if (game.renderer) {
+              game.destroy(true);
+              console.log('Phaser game destroyed successfully');
+            } else {
+              console.warn('Cannot destroy game: renderer not available');
+            }
+          }
+        } catch (destroyError) {
+          console.error('Error destroying Phaser game:', destroyError);
+        }
         gameInstanceRef.current = null;
         sceneRef.current = null;
       };
     } catch (error) {
       console.error('Error initializing Phaser:', error);
+      handleSceneError('Failed to initialize map view. Please check your browser compatibility.');
       setError('Failed to initialize map view');
       setIsLoading(false);
     }

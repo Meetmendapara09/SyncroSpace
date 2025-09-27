@@ -430,21 +430,61 @@ export function AppSidebar() {
         {/* Spaces Section */}
         <div className="space-y-1">
           <Separator className="bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-slate-700 my-3" />
-          <div className="flex items-center justify-between px-2 mb-3">
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              <div className="w-1 h-3 bg-gradient-to-b from-indigo-500 to-purple-500 rounded-full"></div>
-              <Hash className="h-3 w-3 text-indigo-500 flex-shrink-0" />
-              <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider truncate">
-                Spaces
-              </span>
+          <div className="flex items-center gap-2 px-2 mb-3">
+            <div className="w-1 h-3 bg-gradient-to-b from-purple-500 to-blue-500 rounded-full"></div>
+            <Hash className="h-3 w-3 text-purple-500" />
+            <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider flex-1 truncate">
+              Virtual Spaces
+            </span>
+            <div className="bg-gradient-to-r from-purple-100 to-blue-100 dark:from-purple-900/30 dark:to-blue-900/30 text-purple-700 dark:text-purple-400 text-xs px-1.5 py-0.5 rounded-full font-bold border border-purple-200 dark:border-purple-800">
+              {spacesWithActiveParticipants.length}
             </div>
-            {!spacesLoading && (
-              <div className="bg-gradient-to-r from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 text-indigo-700 dark:text-indigo-400 text-xs px-1.5 py-0.5 rounded-full font-bold border border-indigo-200 dark:border-indigo-800 flex-shrink-0">
-                {spacesWithActiveParticipants.length}
-              </div>
-            )}
           </div>
+          
           <SidebarMenu>
+            {/* CaveVerse Entry */}
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={isActive('/space')}
+                className="group relative overflow-hidden rounded-lg transition-all duration-300 hover:shadow-md hover:scale-[1.01]"
+              >
+                <Link 
+                  href="/space" 
+                  className="flex items-center gap-2 px-2 py-2 relative"
+                  prefetch={true}
+                  scroll={false}
+                >
+                  {isActive('/space') && (
+                    <>
+                      <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-red-500 opacity-10 rounded-lg"></div>
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-gradient-to-b from-orange-500 to-red-500 rounded-r-full"></div>
+                    </>
+                  )}
+                  <div className="relative w-6 h-6 rounded-md bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all duration-300 flex-shrink-0">
+                    <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-red-500 rounded-md blur-sm opacity-50 group-hover:opacity-70 transition-opacity duration-300"></div>
+                    <Sparkles className="relative h-3 w-3 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className={`font-medium transition-colors duration-300 truncate block text-sm ${
+                      isActive('/space')
+                        ? 'text-slate-900 dark:text-slate-100'
+                        : 'text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100'
+                    }`}>
+                      CaveVerse Experience
+                    </span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 truncate block">
+                      Immersive virtual world
+                    </span>
+                  </div>
+                  <div className="relative flex-shrink-0">
+                    <div className="absolute inset-0 bg-orange-500/30 rounded-full blur-sm animate-pulse"></div>
+                    <div className="relative w-2 h-2 bg-orange-500 rounded-full animate-pulse shadow-lg"></div>
+                  </div>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+
             {spacesLoading ? (
               <>
                 <SidebarMenuSkeleton showIcon />

@@ -14,11 +14,12 @@ import { InviteDialog } from '@/components/space/invite-dialog';
 import { Button } from '@/components/ui/button';
 import MapView from '@/components/space/MapView';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { useToast } from '@/hooks/use-toast';
 
-export default function SpacePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = React.use(params);
+export default function SpacePage({ params }: { params: { id: string } }) {
+  const { id } = params;
   const [user] = useAuthState(auth);
   const spaceRef = doc(db, 'spaces', id);
   const [spaceSnapshot, spaceLoading, spaceError] = useDocument(spaceRef);
@@ -33,10 +34,50 @@ export default function SpacePage({ params }: { params: Promise<{ id: string }> 
 
   // Fetch all users who are members of this space
   const usersRef = collection(db, 'users');
+  
+  // Set up the query only if we have valid memberIds
   // Firestore 'in' queries are limited to 30 elements.
   // For larger spaces, you'd need a more complex solution like fetching users individually or restructuring data.
-  const usersQuery = memberIds.length > 0 ? query(usersRef, where('uid', 'in', memberIds.slice(0, 30))) : null;
+  let usersQuery = null;
+  try {
+    if (memberIds && Array.isArray(memberIds) && memberIds.length > 0) {
+      // Make sure we're only querying for valid user IDs (strings)
+      const validMemberIds = memberIds.filter(id => typeof id === 'string').slice(0, 30);
+      if (validMemberIds.length > 0) {
+        usersQuery = query(usersRef, where('uid', 'in', validMemberIds));
+      }
+    }
+  } catch (error) {
+    console.error('Error creating users query:', error);
+    toast({
+      title: "Query Error",
+      description: "There was a problem loading the participant data.",
+      variant: "destructive"
+    });
+  }
+  
   const [usersSnapshot, usersLoading, usersError] = useCollection(usersQuery);
+  
+  // Handle errors
+  React.useEffect(() => {
+    if (spaceError) {
+      console.error('Error loading space:', spaceError);
+      toast({
+        title: "Error loading space",
+        description: "There was a problem loading this space. Please try again.",
+        variant: "destructive"
+      });
+    }
+    
+    if (usersError) {
+      console.error('Error loading users:', usersError);
+      toast({
+        title: "Error loading users",
+        description: "There was a problem loading users for this space.",
+        variant: "destructive"
+      });
+    }
+  }, [spaceError, usersError, toast]);
 
   // Get all member data
   const allMembers = usersSnapshot?.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)) || [];
@@ -300,18 +341,29 @@ export default function SpacePage({ params }: { params: Promise<{ id: string }> 
                                 </AlertDescription>
                             </Alert>
                         )}
-                        <MapView 
-                            onPositionChange={handlePositionChange}
-                            participants={activeParticipants.map(p => ({
-                                uid: p.uid,
-                                x: p.spacePositions?.[id]?.x || 0,
-                                y: p.spacePositions?.[id]?.y || 0,
-                                photoURL: p.photoURL
-                            }))}
-                            userId={user?.uid}
-                            width="100%"
-                            height="100%"
-                        />
+                        <ErrorBoundary fallback={
+                          <div className="flex flex-col items-center justify-center h-[60vh]">
+                            <Alert variant="destructive" className="max-w-md">
+                              <AlertTitle>Map Error</AlertTitle>
+                              <AlertDescription>
+                                There was a problem loading the map view. Please try refreshing the page.
+                              </AlertDescription>
+                            </Alert>
+                          </div>
+                        }>
+                          <MapView 
+                              onPositionChange={handlePositionChange}
+                              participants={activeParticipants.map(p => ({
+                                  uid: p.uid,
+                                  x: p.spacePositions?.[id]?.x || 0,
+                                  y: p.spacePositions?.[id]?.y || 0,
+                                  photoURL: p.photoURL
+                              }))}
+                              userId={user?.uid}
+                              width="100%"
+                              height="100%"
+                          />
+                        </ErrorBoundary>
                     </TabsContent>
                 </Tabs>
              ) : (

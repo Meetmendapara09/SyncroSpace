@@ -1,4 +1,6 @@
-import { BigQuery } from '@google-cloud/bigquery';
+// BigQuery is only available on the server
+// This ensures it's only imported in server contexts
+import type { BigQuery } from '@google-cloud/bigquery';
 
 // BigQuery configuration
 const bigqueryConfig = {
@@ -7,17 +9,26 @@ const bigqueryConfig = {
   location: 'US',
 };
 
-// Initialize BigQuery client with proper authentication
+// Initialize BigQuery client with proper authentication - only on server
 let bigqueryInstance: BigQuery | null = null;
 
 // Factory function to get or create BigQuery instance with error handling
 export function getBigQuery(): { instance: BigQuery | null; error: string | null } {
+  // Only run this on the server
+  if (typeof window !== 'undefined') {
+    console.warn('BigQuery cannot be used in browser environment');
+    return { instance: null, error: 'BigQuery cannot be used in browser environment' };
+  }
+  
   // If we already have an instance, return it
   if (bigqueryInstance) {
     return { instance: bigqueryInstance, error: null };
   }
   
   try {
+    // Dynamically import BigQuery only on the server
+    const { BigQuery } = require('@google-cloud/bigquery');
+    
     // Attempt to create a new instance
     bigqueryInstance = new BigQuery({
       projectId: bigqueryConfig.projectId,
