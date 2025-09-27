@@ -303,7 +303,11 @@ export function SecureFileManager({ teamId, spaceId, channelId, folderId }: Secu
       setBreadcrumb([]);
     }
 
-    return () => unsubscribe();
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [user, teamId, spaceId, channelId, folderId, sortBy, sortOrder]);
 
   // Build breadcrumb navigation

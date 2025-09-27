@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Brain, TrendingUp, Users, Target, Lightbulb, AlertCircle } from 'lucide-react';
-import { BigQueryAI } from '@/lib/bigquery';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/lib/firebase';
 
@@ -33,21 +32,35 @@ export function ExecutiveInsightsDashboard() {
       setError(null);
       
       try {
-        // Mock data for demonstration - replace with actual BigQuery call
-        const mockAnalyticsData = {
-          totalUsers: 150,
-          activeUsers: 95,
-          totalMeetings: 45,
-          averageMeetingDuration: 35,
-          messagesSent: 1250,
-          spacesCreated: 12,
-          timestamp: new Date().toISOString()
-        };
+        // Call server-side API route instead of direct BigQuery import
+        const response = await fetch('/api/analytics/insights', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: user.uid,
+            // Mock data for demonstration
+            analyticsData: {
+              totalUsers: 150,
+              activeUsers: 95,
+              totalMeetings: 45,
+              averageMeetingDuration: 35,
+              messagesSent: 1250,
+              spacesCreated: 12,
+              timestamp: new Date().toISOString()
+            }
+          })
+        });
 
-        const result = await BigQueryAI.generateExecutiveInsights([mockAnalyticsData]);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
         
         if (result.success && result.data) {
-          // Transform BigQuery result to our expected format
+          // Transform API result to our expected format
           const transformedInsights: ExecutiveInsight[] = result.data.map((item: any, index: number) => ({
             category: 'AI Analysis',
             title: `Insight ${index + 1}`,

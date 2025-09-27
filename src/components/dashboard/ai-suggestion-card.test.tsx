@@ -35,17 +35,19 @@ describe('AiSuggestionCard', () => {
   it('renders the AI suggestion card with initial state', () => {
     render(<AiSuggestionCard />);
     
-    expect(screen.getByText('AI-Powered Suggestions')).toBeInTheDocument();
-    expect(screen.getByText('Get personalized workspace recommendations')).toBeInTheDocument();
-    expect(screen.getByText('Generate Suggestion')).toBeInTheDocument();
+    expect(screen.getByText('Discover New Spaces')).toBeInTheDocument();
+    expect(screen.getByText('Let AI find a relevant channel for you.')).toBeInTheDocument();
+    expect(screen.getByText('Suggest a Channel')).toBeInTheDocument();
   });
 
   it('shows loading state when user data is loading', () => {
     mockUseDocumentData.mockReturnValue([undefined, true, undefined] as any);
     
-    render(<AiSuggestionCard />);
+    const { container } = render(<AiSuggestionCard />);
     
-    expect(screen.getByTestId('loading-skeleton')).toBeInTheDocument();
+    // Check for skeleton loading elements by their class attributes
+    const skeletons = container.querySelectorAll('.animate-pulse.bg-muted');
+    expect(skeletons.length).toBeGreaterThan(0);
   });
 
   it('handles successful suggestion generation', async () => {
@@ -60,7 +62,7 @@ describe('AiSuggestionCard', () => {
     
     render(<AiSuggestionCard />);
     
-    const generateButton = screen.getByText('Generate Suggestion');
+    const generateButton = screen.getByText('Suggest a Channel');
     fireEvent.click(generateButton);
     
     expect(screen.getByText('Generating...')).toBeInTheDocument();
@@ -76,7 +78,7 @@ describe('AiSuggestionCard', () => {
     
     render(<AiSuggestionCard />);
     
-    const generateButton = screen.getByText('Generate Suggestion');
+    const generateButton = screen.getByText('Suggest a Channel');
     fireEvent.click(generateButton);
     
     await waitFor(() => {
@@ -89,7 +91,7 @@ describe('AiSuggestionCard', () => {
     
     render(<AiSuggestionCard />);
     
-    const generateButton = screen.getByText('Generate Suggestion');
+    const generateButton = screen.getByText('Suggest a Channel');
     fireEvent.click(generateButton);
     
     await waitFor(() => {
@@ -109,11 +111,11 @@ describe('AiSuggestionCard', () => {
     
     render(<AiSuggestionCard />);
     
-    const generateButton = screen.getByText('Generate Suggestion');
+    const generateButton = screen.getByText('Suggest a Channel');
     fireEvent.click(generateButton);
     
     await waitFor(() => {
-      expect(screen.getByText('Get Another Suggestion')).toBeInTheDocument();
+      expect(screen.getByText('Suggest Another')).toBeInTheDocument();
     });
   });
 });

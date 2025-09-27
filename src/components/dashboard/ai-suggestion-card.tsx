@@ -18,8 +18,10 @@ export function AiSuggestionCard() {
   const [error, setError] = useState<string | null>(null);
   
   const [user] = useAuthState(auth);
-  const userDocRef = user ? doc(db, 'users', user.uid) : null;
-  const [userData, userDataLoading] = useDocumentData(userDocRef);
+  // Only call useDocumentData if user exists
+  const [userData, userDataLoading] = useDocumentData(
+    user ? doc(db, 'users', user.uid) : undefined
+  );
 
 
   const handleSuggestChannel = async () => {

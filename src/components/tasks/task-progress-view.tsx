@@ -74,17 +74,17 @@ export function TaskProgressView() {
   
   // Calculate task statistics
   const totalTasks = tasks.length;
-  const completedTasks = tasks.filter(task => task.status === 'completed').length;
+  const completedTasks = tasks.filter(task => task.status === 'done').length;
   const inProgressTasks = tasks.filter(task => task.status === 'in-progress').length;
   const todoTasks = tasks.filter(task => task.status === 'todo').length;
   const onHoldTasks = tasks.filter(task => task.status === 'on-hold').length;
   
   const overdueTasks = tasks.filter(task => 
-    task.dueDate && isPast(new Date(task.dueDate)) && task.status !== 'completed'
+    task.dueDate && isPast(task.dueDate.toDate()) && task.status !== 'done'
   ).length;
   
-  const thisWeekTasks = tasks.filter(task => 
-    task.dueDate && isThisWeek(new Date(task.dueDate))
+    const upcomingTasks = tasks.filter(task => 
+    task.dueDate && isThisWeek(task.dueDate.toDate())
   ).length;
   
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
@@ -154,7 +154,7 @@ export function TaskProgressView() {
             <CalendarDays className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{thisWeekTasks}</div>
+            <div className="text-2xl font-bold">{upcomingTasks}</div>
             <p className="text-xs text-muted-foreground">
               Due this week
             </p>
@@ -248,14 +248,14 @@ export function TaskProgressView() {
         <CardContent>
           <div className="space-y-3">
             {tasks
-              .sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())
+              .sort((a, b) => (b.updatedAt || b.createdAt).toDate().getTime() - (a.updatedAt || a.createdAt).toDate().getTime())
               .slice(0, 5)
               .map((task) => (
                 <div key={task.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center gap-3">
                     <div className={cn(
                       "w-2 h-2 rounded-full",
-                      task.status === 'completed' && "bg-green-500",
+                      task.status === 'done' && "bg-green-500",
                       task.status === 'in-progress' && "bg-blue-500",
                       task.status === 'todo' && "bg-gray-500",
                       task.status === 'on-hold' && "bg-yellow-500"
@@ -263,7 +263,7 @@ export function TaskProgressView() {
                     <div>
                       <p className="font-medium text-sm">{task.title}</p>
                       <p className="text-xs text-muted-foreground">
-                        {task.dueDate && format(new Date(task.dueDate), 'MMM dd, yyyy')}
+                        {task.dueDate && format(task.dueDate.toDate(), 'MMM dd, yyyy')}
                       </p>
                     </div>
                   </div>

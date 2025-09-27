@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TrendingUp, Users, Calendar, Target } from 'lucide-react';
-import { BigQueryAI } from '@/lib/bigquery';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/lib/firebase';
 
@@ -40,9 +39,25 @@ export function UserEngagementForecast() {
           featuresUsed: 12
         };
 
-        const result = await BigQueryAI.forecastUserEngagement(user.uid, [mockHistoricalData]);
+        // Call API route instead of direct BigQuery import
+        const response = await fetch('/api/analytics/user-forecast', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: user.uid,
+            historicalData: [mockHistoricalData]
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
         
-        if (result.success && result.data) {
+        if (result.success) {
           // Transform the result to our expected format
           setForecast({
             period: 'Next 30 days',

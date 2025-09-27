@@ -18,6 +18,7 @@ import { MeetingNotesComponent } from '@/components/meeting/meeting-notes';
 import { ActionItemsTracker } from '@/components/meeting/action-items-tracker';
 import { FollowUpReminders } from '@/components/meeting/follow-up-reminders';
 import { TemplateSelectDialog } from '@/components/meeting/template-select-dialog';
+import { MeetingEffectivenessMetrics } from '@/components/meeting/meeting-effectiveness-metrics';
 import { format, isToday, isYesterday, isTomorrow, parseISO } from 'date-fns';
 
 interface MeetingData {

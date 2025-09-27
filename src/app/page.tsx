@@ -74,15 +74,15 @@ export default function LandingPage() {
               backgroundSize: '30px 30px',
             }}
           ></div>
-          <div className="container">
-            <div className="mx-auto max-w-3xl">
-              <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl lg:text-7xl">
+          <div className="container px-4 mx-auto">
+            <div className="mx-auto max-w-4xl">
+              <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl leading-tight">
                 Your Team's Digital Headquarters
               </h1>
-              <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
+              <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground leading-relaxed">
                 SyncroSpace is more than a tool—it's a place. An all-in-one platform for remote teams to collaborate, manage projects, and build culture.
               </p>
-              <div className="mt-8">
+              <div className="mt-8 flex justify-center">
                 <Button size="lg" asChild>
                   <Link href="/signup">Claim Your Space for Free</Link>
                 </Button>
@@ -91,23 +91,23 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="features" className="container py-20 md:py-24">
+        <section id="features" className="container px-4 py-20 md:py-24">
           <div className="mx-auto grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
-            <div className="space-y-6">
-              <div className="mb-8">
-                <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            <div className="space-y-8">
+              <div>
+                <h2 className="text-3xl font-bold tracking-tight sm:text-4xl leading-tight">
                   A New Dimension of Collaboration
                 </h2>
-                <p className="mt-4 text-muted-foreground">
+                <p className="mt-4 text-muted-foreground text-lg leading-relaxed">
                   SyncroSpace isn't just another tool. It's a place for your
                   team to thrive.
                 </p>
               </div>
-              <ul className="grid gap-4">
+              <ul className="space-y-3">
                 {features.map((feature, i) => (
-                  <li key={i} className="flex items-start gap-3">
-                    <CheckCircle className="mt-1 h-5 w-5 shrink-0 text-primary" />
-                    <span>{feature}</span>
+                  <li key={i} className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 shrink-0 text-primary" />
+                    <span className="text-base leading-relaxed">{feature}</span>
                   </li>
                 ))}
               </ul>
@@ -140,43 +140,43 @@ export default function LandingPage() {
         </section>
 
         <section id="testimonial" className="bg-muted py-20 md:py-24">
-          <div className="container">
-            <div className="mx-auto max-w-3xl text-center">
-              <Avatar className="mx-auto mb-4 h-16 w-16">
+          <div className="container px-4">
+            <div className="mx-auto max-w-4xl text-center">
+              <Avatar className="mx-auto mb-6 h-16 w-16">
                 <AvatarImage src="https://i.pravatar.cc/150?u=a042581f4e29026704d" />
                 <AvatarFallback>JD</AvatarFallback>
               </Avatar>
-              <blockquote className="text-xl italic text-foreground md:text-2xl">
-                “SyncroSpace has transformed how our remote team interacts. The
+              <blockquote className="text-xl italic text-foreground md:text-2xl leading-relaxed">
+                "SyncroSpace has transformed how our remote team interacts. The
                 virtual space feels alive, and has genuinely improved our team
-                cohesion and spontaneous collaboration.”
+                cohesion and spontaneous collaboration."
               </blockquote>
-              <cite className="mt-6 block font-semibold not-italic">
+              <cite className="mt-6 block font-semibold not-italic text-lg">
                 Jane Doe, CEO of Innovate Inc.
               </cite>
-              <div className="mt-2 flex justify-center gap-1 text-primary">
+              <div className="mt-3 flex justify-center gap-1 text-primary">
                 {[...Array(5)].map((_, i) => (
                   <Star key={i} className="h-5 w-5 fill-primary" />
                 ))}
               </div>
             </div>
           </div>
-        </section>
-
-        <section id="cta" className="container py-20 text-center md:py-24">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Ready to Build Your Digital HQ?
-          </h2>
-          <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-            Sign up today and experience the future of remote work. It's free
-            to get started.
-          </p>
-          <div className="mt-8">
-            <Button size="lg" asChild>
-              <Link href="/signup">
-                Sign Up Now <ArrowRight className="ml-2" />
-              </Link>
-            </Button>
+        </section>        <section id="cta" className="container px-4 py-20 text-center md:py-24">
+          <div className="mx-auto max-w-3xl">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl leading-tight">
+              Ready to Build Your Digital HQ?
+            </h2>
+            <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground leading-relaxed">
+              Sign up today and experience the future of remote work. It's free
+              to get started.
+            </p>
+            <div className="mt-8 flex justify-center">
+              <Button size="lg" asChild>
+                <Link href="/signup">
+                  Sign Up Now <ArrowRight className="ml-2" />
+                </Link>
+              </Button>
+            </div>
           </div>
         </section>
       </main>

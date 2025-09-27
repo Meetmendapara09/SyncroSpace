@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BarChart3, Clock, Users, MessageSquare, Video } from 'lucide-react';
-import { BigQueryAI } from '@/lib/bigquery';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/lib/firebase';
 
@@ -46,15 +45,30 @@ export function EnhancedMeetingAnalytics() {
           date: new Date().toISOString()
         };
 
-        const effectivenessResult = await BigQueryAI.analyzeMeetingEffectiveness(mockMeetingData);
-        const categorizationResult = await BigQueryAI.categorizeMeeting(mockMeetingData);
+        // Call API route instead of direct BigQuery import
+        const response = await fetch('/api/analytics/meeting-analytics', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: user.uid,
+            meetingData: mockMeetingData
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
         
-        if (effectivenessResult.success && categorizationResult.success) {
+        if (result.success) {
           setAnalytics({
             totalMeetings: 45,
             averageDuration: 32,
             participationRate: 85,
-            effectivenessScore: Math.round((effectivenessResult.analysis?.productivityScore || 75) * 10) / 10,
+            effectivenessScore: Math.round((result.data?.effectiveness?.score || 75) * 10) / 10,
             categories: [
               { category: 'Standup', count: 18, percentage: 40 },
               { category: 'Planning', count: 12, percentage: 27 },

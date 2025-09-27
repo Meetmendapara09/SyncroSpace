@@ -46,3 +46,10 @@ nohup: ignoring input
 [MAIN] 
 [MAIN]  ✓ Starting...
 [MAIN]  ✓ Ready in 16.7s
+[CAVE_CLIENT] 3:43:47 AM [vite] Pre-transform error: Missing closing } at @layer base
+[MAIN]  ○ Compiling / ...
+[MAIN]  ✓ Compiled / in 18.9s (1836 modules)
+[MAIN]  GET / 200 in 22224ms
+[MAIN] [?25h
+[CAVE_CLIENT] npm run dev:cave-client exited with code SIGTERM
+[MAIN] npm run dev:main exited with code SIGTERM
