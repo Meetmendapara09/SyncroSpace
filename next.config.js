@@ -9,7 +9,7 @@ const nextConfig = {
     ignoreDuringBuilds: true, // Temporarily ignore ESLint errors
   },
   // Add webpack configuration to handle Node.js modules
-  transpilePackages: ['@google-cloud/bigquery'],
+  serverExternalPackages: ['@google-cloud/bigquery'],
   experimental: {
     optimizeCss: true,
     optimizePackageImports: [
@@ -18,7 +18,6 @@ const nextConfig = {
       '@radix-ui/react-dropdown-menu',
       '@radix-ui/react-dialog'
     ],
-    serverComponentsExternalPackages: ['@google-cloud/bigquery'],
   },
   webpack: (config, { dev, isServer }) => {
     if (!dev && !isServer) {

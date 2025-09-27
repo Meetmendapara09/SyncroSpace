@@ -10,8 +10,13 @@ export default function SpaceLandingPage() {
   const router = useRouter();
 
   const redirectToCaveVerse = () => {
-    // Redirect to the CaveVerse client running on port 3001
-    window.open('http://localhost:3001', '_blank');
+    // In development, redirect to CaveVerse client on port 3001
+    // In production, this could be configured differently
+    const caveVerseUrl = process.env.NODE_ENV === 'development' 
+      ? 'http://localhost:3001'
+      : window.location.origin.replace(':9002', ':3001'); // Adjust for production
+    
+    window.open(caveVerseUrl, '_blank');
   };
 
   const redirectToTraditionalSpace = () => {

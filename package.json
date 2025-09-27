@@ -8,10 +8,11 @@
     "space/server"
   ],
   "scripts": {
-    "dev": "concurrently --names=\"MAIN,CAVE_CLIENT,CAVE_SERVER\" --prefix-colors=\"cyan,magenta,yellow\" \"npm run dev:main\" \"npm run dev:cave-client\" \"npm run dev:cave-server\"",
+    "dev": "concurrently --names=\"MAIN,CAVE_CLIENT\" --prefix-colors=\"cyan,magenta\" \"npm run dev:main\" \"npm run dev:cave-client\"",
     "dev:main": "next dev -p 9002",
     "dev:cave-client": "cd space/client && npm run dev -- --port 3001",
     "dev:cave-server": "cd space/server && npm run dev",
+    "dev:all": "concurrently --names=\"MAIN,CAVE_CLIENT,CAVE_SERVER\" --prefix-colors=\"cyan,magenta,yellow\" \"npm run dev:main\" \"npm run dev:cave-client\" \"npm run dev:cave-server\"",
     "build": "npm run build:main && npm run build:cave-client && npm run build:cave-server",
     "build:main": "NODE_OPTIONS='--max_old_space_size=8192' NEXT_TELEMETRY_DISABLED=1 next build",
     "build:cave-client": "cd space/client && npm run build",
@@ -21,6 +22,7 @@
     "start:cave-client": "cd space/client && npx serve -s dist -l 3001",
     "start:cave-server": "cd space/server && npm start",
     "install:all": "npm install && cd space/client && npm install && cd ../server && npm install && cd ../..",
+    "status": "node scripts/check-services.js",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build:fast": "NODE_OPTIONS='--max_old_space_size=8192 --max-semi-space-size=512' NEXT_TELEMETRY_DISABLED=1 next build",
