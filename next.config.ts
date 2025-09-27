@@ -2,16 +2,43 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false, // Enable TypeScript checks for better quality
   },
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false, // Enable ESLint checks for code quality
   },
+  compress: true, // Enable gzip compression
+  reactStrictMode: true, // Enable React strict mode
+  poweredByHeader: false, // Keep security header disabled
+  serverExternalPackages: ['@google-cloud/bigquery'], // Updated from experimental
   experimental: {
-    optimizeCss: true,
-    serverComponentsExternalPackages: ['@google-cloud/bigquery'],
+    optimizeCss: true, // Enable CSS optimization
   },
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, buildId, dev }) => {
+    // Optimize memory usage and performance
+    config.optimization = {
+      ...config.optimization,
+      splitChunks: {
+        chunks: 'all',
+        cacheGroups: {
+          default: {
+            minChunks: 2,
+            priority: -20,
+            reuseExistingChunk: true,
+          },
+          vendors: {
+            test: /[\\/]node_modules[\\/]/,
+            priority: -10,
+            reuseExistingChunk: true,
+          },
+        },
+      },
+    };
+
+    // Limit memory usage
+    config.parallelism = 1;
+    config.cache = false;
+
     // Handle handlebars compatibility
     config.resolve.alias = {
       ...config.resolve.alias,

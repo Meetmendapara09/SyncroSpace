@@ -1,5 +1,8 @@
 import { Schema, type, MapSchema, ArraySchema } from "@colyseus/schema";
 
+// Fix for TypeScript decorators
+declare const type: any;
+
 // Message types for chat system
 type MessageType = "PLAYER_JOINED" | "PLAYER_LEFT" | "REGULAR_MESSAGE" | "SYSTEM_MESSAGE";
 

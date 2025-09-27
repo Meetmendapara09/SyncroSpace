@@ -16,4 +16,23 @@ module.exports = {
             },
         }],
     },
+    maxWorkers: '50%',
+    collectCoverageFrom: [
+        'src/**/*.{ts,tsx}',
+        '!src/**/*.d.ts',
+        '!src/**/__tests__/**',
+        '!src/**/*.test.{ts,tsx}',
+        '!src/**/index.ts',
+    ],
+    coverageReporters: ['text', 'lcov', 'html'],
+    coverageDirectory: 'coverage',
+    coverageThresholds: {
+        global: {
+            branches: 60,
+            functions: 60,
+            lines: 60,
+            statements: 60,
+        },
+    },
+    workerIdleMemoryLimit: '512MB',
 };
